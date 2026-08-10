@@ -1,0 +1,2262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title id="pageTitle">RESPONDE — Pursuit Coordination</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-900:#0a1524;
+    --navy-800:#0f2038;
+    --navy-700:#16304f;
+    --navy-600:#1e4066;
+    --gold:#c9a227;
+    --gold-bright:#e6c34a;
+    --red:#d6483f;
+    --green:#3aa06a;
+    --amber:#d99a2b;
+    --paper:#eee9dd;
+    --paper-dim:#c9c3b2;
+    --line:rgba(201,162,39,0.25);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--navy-900); color:var(--paper);
+    font-family:'Inter',sans-serif;
+    height:100vh; height:100dvh; overflow:hidden;
+    overscroll-behavior:none;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:0.04em;}
+  button{font-family:inherit;}
+  a{color:var(--gold);}
+
+  /* ---------- Generic form / button primitives ---------- */
+  .field{margin-bottom:10px;}
+  .field label{display:block; font-size:11px; color:var(--paper-dim); margin-bottom:4px;}
+  select, textarea, input[type=text], input[type=password], input[type=number]{
+    width:100%; background:var(--navy-900); border:1px solid var(--navy-600); color:var(--paper);
+    border-radius:4px; padding:9px; font-family:'Inter'; font-size:14px; resize:vertical;
+    min-height:44px;
+  }
+  textarea{min-height:56px;}
+  select:focus, textarea:focus, input:focus, button:focus-visible{
+    outline:2px solid var(--gold-bright); outline-offset:1px;
+  }
+  .btn{
+    background:var(--gold); color:var(--navy-900); border:none; border-radius:4px;
+    padding:11px 14px; font-family:'Oswald'; font-weight:600; letter-spacing:0.05em; text-transform:uppercase;
+    font-size:12.5px; cursor:pointer; min-height:44px;
+  }
+  .btn:hover:not(:disabled){background:var(--gold-bright);}
+  .btn:disabled{opacity:0.5; cursor:not-allowed;}
+  .btn.block{width:100%;}
+  .btn.secondary{background:var(--navy-600); color:var(--paper);}
+  .btn.danger{background:var(--red); color:var(--paper);}
+  .btn.small{padding:8px 12px; font-size:11px; min-height:38px;}
+  .btn.ghost{background:transparent; color:var(--gold); border:1px solid var(--line);}
+  .hint{font-size:10.5px; color:var(--paper-dim); margin-top:6px; line-height:1.4;}
+  .errText{font-size:12px; color:var(--red); margin-top:6px; min-height:14px;}
+  .card{background:var(--navy-800); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:14px;}
+  .card h3{font-family:'Oswald'; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin:0 0 12px 0;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  @media (max-width:520px){.row2{grid-template-columns:1fr;}}
+  table.dataTable{width:100%; border-collapse:collapse; font-size:13px;}
+  table.dataTable th{text-align:left; font-family:'Oswald'; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--paper-dim); padding:8px 6px; border-bottom:1px solid var(--line);}
+  table.dataTable td{padding:9px 6px; border-bottom:1px solid rgba(255,255,255,0.05); vertical-align:middle;}
+  .pill{font-size:10px; padding:2px 8px; border-radius:10px; font-family:'IBM Plex Mono'; text-transform:uppercase;}
+  .pill.on{background:rgba(58,160,106,0.2); color:var(--green);}
+  .pill.off{background:rgba(214,72,63,0.2); color:var(--red);}
+  .iconBtn{background:var(--navy-900); border:1px solid var(--navy-600); color:var(--paper-dim); border-radius:4px; padding:7px 10px; font-size:11px; cursor:pointer; min-height:36px;}
+  .iconBtn:hover{color:var(--paper); border-color:var(--gold);}
+
+  /* ---------- Toasts ---------- */
+  #toastStack{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(70px + env(safe-area-inset-bottom,0px)); z-index:999; display:flex; flex-direction:column; gap:8px; width:min(92vw, 420px); pointer-events:none;}
+  .toast{background:var(--navy-800); border:1px solid var(--gold); color:var(--paper); border-radius:6px; padding:10px 14px; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,0.5); opacity:0; transform:translateY(8px); transition:all .2s ease;}
+  .toast.show{opacity:1; transform:translateY(0);}
+  .toast.error{border-color:var(--red);}
+  .toast.success{border-color:var(--green);}
+
+  /* ================= LOGIN SCREEN ================= */
+  #loginScreen{
+    position:fixed; inset:0; z-index:100; background:radial-gradient(circle at 50% 20%, var(--navy-700), var(--navy-900));
+    display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px;
+    overflow-y:auto;
+  }
+  #loginScreen.hidden{display:none;}
+  .loginCard{width:100%; max-width:420px; text-align:center;}
+  .loginMark{width:56px; height:56px; border:2px solid var(--gold); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; color:var(--gold); margin:0 auto 14px;}
+  .loginCard h1{font-family:'Oswald'; text-transform:uppercase; letter-spacing:0.08em; font-size:26px; margin:0 0 4px;}
+  .loginCard .subtitle{color:var(--paper-dim); font-size:13px; margin:0 0 28px;}
+  .roleChoices{display:flex; flex-direction:column; gap:12px;}
+  .roleChoices .btn{padding:16px; font-size:13.5px;}
+  .loginPanel{display:none; text-align:left; margin-top:18px;}
+  .loginPanel.show{display:block;}
+  .backLink{background:none; border:none; color:var(--paper-dim); font-size:12px; cursor:pointer; margin-bottom:14px; padding:6px 0; min-height:32px;}
+  .backLink:hover{color:var(--gold);}
+  #googleSignInSection{margin-bottom:18px;}
+  #googleSignInSection.hidden{display:none;}
+  #googleSignInBtn{display:flex; justify-content:center; min-height:44px;}
+  .orDivider{display:flex; align-items:center; gap:10px; margin:18px 0; color:var(--paper-dim); font-size:11px; text-transform:uppercase; letter-spacing:0.06em;}
+  .orDivider::before, .orDivider::after{content:''; flex:1; height:1px; background:var(--line);}
+  .orDivider.hidden{display:none;}
+
+  /* ================= APP SHELL ================= */
+  #appShell{display:none; flex-direction:column; height:100vh; height:100dvh;}
+  #appShell.show{display:flex;}
+
+  #marquee{
+    background:var(--navy-900); border-bottom:1px solid var(--line); overflow:hidden;
+    white-space:nowrap; padding:5px 0; flex:0 0 auto; position:relative;
+  }
+  #marquee .track{display:inline-block; padding-left:100%; animation:marquee 28s linear infinite; font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--gold-bright);}
+  #marquee:hover .track, #marquee:focus-within .track{animation-play-state:paused;}
+  @keyframes marquee{0%{transform:translateX(0);} 100%{transform:translateX(-100%);}}
+  @media (prefers-reduced-motion:reduce){
+    #marquee{overflow-x:auto;}
+    #marquee .track{animation:none; padding-left:0; display:block;}
+  }
+
+  #appHeader{
+    height:52px; background:var(--navy-800); border-bottom:2px solid var(--gold);
+    display:flex; align-items:center; padding:0 14px; gap:12px; flex:0 0 auto; z-index:20;
+  }
+  .brand{display:flex; align-items:center; gap:9px; min-width:0;}
+  .brand .mark{width:26px;height:26px;border:2px solid var(--gold); border-radius:50%; display:flex;align-items:center;justify-content:center; font-size:12px; font-weight:700; color:var(--gold); flex:0 0 auto;}
+  .brand .title{font-family:'Oswald'; font-weight:600; letter-spacing:0.06em; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .brand .title small{display:block; font-family:'Inter'; font-weight:400; letter-spacing:0; font-size:9.5px; color:var(--paper-dim); text-transform:none;}
+  #identityWrap{margin-left:auto; display:flex; align-items:center; gap:10px; min-width:0;}
+  #identityLabel{font-family:'IBM Plex Mono'; font-size:11px; color:var(--paper-dim); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;}
+  #syncBadge{font-family:'IBM Plex Mono'; font-size:11px; color:var(--paper-dim); display:flex; align-items:center; gap:6px;}
+  #syncBadge .dot{width:7px;height:7px;border-radius:50%; background:var(--green); animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1} 50%{opacity:0.35}}
+
+  #appBody{flex:1; min-height:0; display:flex; position:relative;}
+
+  #appFooter{
+    flex:0 0 auto; background:var(--navy-800); border-top:1px solid var(--line); color:var(--paper-dim);
+    font-family:'IBM Plex Mono'; font-size:10.5px; text-align:center; padding:6px 10px;
+    padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));
+  }
+
+  /* ---------- TOC menu — horizontal bar below the app name ---------- */
+  #sideNav{
+    display:none; flex-direction:row; align-items:stretch; flex:0 0 auto;
+    background:var(--navy-800); border-bottom:2px solid var(--line);
+    overflow-x:auto; overflow-y:hidden; scrollbar-width:thin;
+  }
+  .navBtn{
+    display:flex; align-items:center; gap:8px; flex:0 0 auto; white-space:nowrap;
+    background:none; border:none; border-bottom:3px solid transparent; color:var(--paper-dim);
+    padding:12px 18px; font-size:12px; font-family:'Oswald'; font-weight:500; letter-spacing:0.05em; text-transform:uppercase;
+    text-align:left; cursor:pointer; min-height:44px;
+  }
+  .navBtn:hover{background:var(--navy-700); color:var(--paper);}
+  .navBtn.active{background:var(--navy-700); color:var(--gold-bright); border-bottom-color:var(--gold); font-weight:600;}
+  .navBtn.logoutBtn{margin-left:auto; color:var(--red);}
+
+  /* ---------- Main content ---------- */
+  #mainArea{flex:1; min-width:0; min-height:0; position:relative; display:flex;}
+  .tocSection{display:none; width:100%; min-width:0; min-height:0;}
+  .tocSection.active{display:flex;}
+  .scrollPanel{width:100%; overflow-y:auto; padding:18px; max-width:760px; margin:0 auto;}
+
+  /* ---------- Operations layout (map + drawer) ---------- */
+  #opSidebar{
+    width:340px; background:var(--navy-800); border-right:2px solid var(--line);
+    display:flex; flex-direction:column; overflow:hidden; flex:0 0 auto;
+  }
+  #opSidebarTop{display:flex; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); flex:0 0 auto;}
+  #opSidebarTop .opSidebarTitle{font-family:'Oswald'; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);}
+
+  /* ---- Operations panel selector + single visible panel ---- */
+  #opPanelSelectWrap{
+    flex:0 0 auto; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--navy-800);
+  }
+  #opPanelSelect{
+    width:100%; min-height:42px; padding:9px 12px; border:1px solid var(--navy-600);
+    border-radius:4px; background:var(--navy-900); color:var(--paper); font-family:'Oswald';
+    font-size:12px; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer;
+  }
+  #opPanelSelect:focus{outline:2px solid var(--gold); outline-offset:1px; border-color:var(--gold);}
+  .accPanel{
+    flex:1 1 auto; min-height:0; border-bottom:1px solid var(--line);
+    display:none; flex-direction:column; overflow:hidden;
+  }
+  .accPanel.comboActive{display:flex;}
+  .accHead{display:none;}
+  .accBody{
+    display:flex; flex:1 1 auto; flex-direction:column; min-height:0; padding:0 16px 16px;
+    overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:var(--navy-600) transparent;
+  }
+  .accPanel.unitsPanel .accBody{padding:0; overflow-y:auto; overflow-x:hidden;}
+  .accBody::-webkit-scrollbar{width:7px;}
+  .accBody::-webkit-scrollbar-track{background:transparent;}
+  .accBody::-webkit-scrollbar-thumb{background:var(--navy-600); border-radius:6px;}
+
+  /* Activity Log is also one of the selectable Operations panels. */
+  #opActivityLog.comboActivityPanel{flex:1 1 auto; min-height:0; max-height:none; overflow:hidden; border-top:0;}
+  #opActivityLog.comboActivityPanel .opActivityHead{flex:0 0 auto;}
+  #opActivityLog.comboActivityPanel #opActivityTicker{flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto;}
+
+  /* ---- Segmented toggle (Point vs Checkpoint) ---- */
+  .segToggle{display:flex; gap:6px; margin-bottom:12px;}
+  .segBtn{
+    flex:1; background:var(--navy-900); border:1px solid var(--navy-600); color:var(--paper-dim);
+    padding:9px 6px; font-family:'Oswald'; font-size:11px; letter-spacing:0.05em; text-transform:uppercase;
+    border-radius:4px; cursor:pointer; min-height:38px;
+  }
+  .segBtn.active{background:var(--gold); color:var(--navy-900); border-color:var(--gold); font-weight:600;}
+
+  /* ---- Active points/checkpoints list ---- */
+  #markerList{margin-top:4px;}
+  .markerItem{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 0; border-bottom:1px dotted rgba(255,255,255,0.08);}
+  .markerItem:last-child{border-bottom:none;}
+  .markerInfo{min-width:0;}
+  .markerInfo .markerTitle{font-size:12.5px; font-weight:500; display:flex; align-items:center; gap:6px;}
+  .markerInfo .markerTag{font-family:'IBM Plex Mono'; font-size:9px; padding:1px 6px; border-radius:8px; text-transform:uppercase; flex:0 0 auto;}
+  .markerTag.pt{background:rgba(201,162,39,0.2); color:var(--gold-bright);}
+  .markerTag.cp{background:rgba(217,154,43,0.2); color:var(--amber);}
+  .markerTag.inc{background:rgba(214,72,63,0.2); color:var(--red);}
+  .markerInfo .markerMeta{font-size:10.5px; color:var(--paper-dim); margin-top:2px; font-family:'IBM Plex Mono'; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  #unitList{flex:0 0 auto; overflow:visible;}
+  .unitCard{padding:10px 16px; border-bottom:1px solid var(--line); border-left:3px solid transparent; cursor:pointer; transition:background .15s;}
+  .unitCard:hover{background:var(--navy-700);}
+  .unitCard.selected{background:var(--navy-600); border-left-color:var(--gold);}
+  .unitRow{display:flex; justify-content:space-between; align-items:center;}
+  .unitName{font-family:'Oswald'; font-size:13px; font-weight:500;}
+  .status{font-size:10px; padding:2px 7px; border-radius:10px; font-family:'IBM Plex Mono'; text-transform:uppercase;}
+  .status.available{background:rgba(58,160,106,0.2); color:var(--green);}
+  .status.responding{background:rgba(217,154,43,0.2); color:var(--amber);}
+  .status.onscene{background:rgba(214,72,63,0.2); color:var(--red);}
+  .unitMeta{font-size:10.5px; color:var(--paper-dim); margin-top:3px; font-family:'IBM Plex Mono';}
+  #dispatchBox{
+    border-top:1px solid var(--line); padding:12px 16px; margin:0;
+    display:none; background:var(--navy-800);
+  }
+  #dispatchBox.show{display:block;}
+  .unitCard #dispatchBox.show{display:block; margin:10px -16px -10px; border-top:1px solid var(--line);}
+  #dispatchBox h4{margin:0; font-size:12px; font-family:'Oswald'; color:var(--gold);}
+  #dispatchBox textarea#dispatchMsg{
+    display:block; width:100%; min-height:82px; box-sizing:border-box;
+    resize:vertical; cursor:text; pointer-events:auto; user-select:text;
+    position:relative; z-index:2;
+  }
+  #dispatchBox textarea#dispatchMsg:focus{outline:1px solid var(--gold);}
+  .dispatchBoxHead{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;}
+  #closeDispatchBox{background:none; border:none; color:var(--paper-dim); font-size:19px; line-height:1; cursor:pointer; padding:4px 8px; border-radius:4px; min-height:32px;}
+  #closeDispatchBox:hover{color:var(--gold); background:var(--navy-700);}
+  #opActivityLog{
+    flex:0 0 auto; border-top:2px solid var(--line); background:var(--navy-800);
+    max-height:150px; overflow-y:auto; overflow-x:hidden; scrollbar-width:thin;
+  }
+  #opActivityLog .opActivityHead{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:7px 14px; font-family:'Oswald'; font-size:10.5px;
+    letter-spacing:0.08em; text-transform:uppercase; color:var(--gold);
+  }
+  #opActivityTicker{
+    max-height:none; overflow:visible; padding:6px 14px;
+    font-family:'IBM Plex Mono'; font-size:10.5px;
+  }
+  #opActivityTicker .entry{padding:3px 0; color:var(--paper-dim); border-bottom:1px dotted rgba(255,255,255,0.05);}
+  #opActivityTicker .entry .t{color:var(--gold); margin-right:8px;}
+  #opActivityTicker .entry.urgent{color:var(--red);}
+  #opActivityTicker .entry .reCount{opacity:0.6; font-size:0.9em;}
+  #opMapWrap{flex:1; min-width:0; position:relative; display:flex; flex-direction:column;}
+  #map{flex:1; background:#0d1b2b;}
+  .leaflet-container{background:#0d1b2b;}
+
+  #tickerWrap{background:var(--navy-800); border-top:2px solid var(--line); flex:0 0 auto;}
+  #tickerHead{display:none; align-items:center; justify-content:space-between; padding:6px 14px; font-family:'Oswald'; font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); cursor:pointer; user-select:none; min-height:36px;}
+  #tickerHead .chev{transition:transform .2s;}
+  #ticker{height:130px; overflow-y:auto; padding:8px 16px; font-family:'IBM Plex Mono'; font-size:11.5px;}
+  #ticker .entry{padding:3px 0; color:var(--paper-dim); border-bottom:1px dotted rgba(255,255,255,0.05);}
+  #ticker .entry .t{color:var(--gold); margin-right:8px;}
+  #ticker .entry.urgent{color:var(--red);}
+  #ticker .entry .reCount{opacity:0.6; font-size:0.9em;}
+  #tickerWrap.collapsed #ticker{height:0; padding-top:0; padding-bottom:0; overflow:hidden;}
+  #logSection #ticker{height:auto; max-height:60vh;}
+
+  #closeOpSidebar{display:none; align-items:center; justify-content:center; width:30px; height:30px; margin-left:auto; background:var(--navy-900); border:1px solid var(--navy-600); border-radius:4px; color:var(--paper-dim); font-size:16px; cursor:pointer; flex:0 0 auto;}
+  #consoleToggle{display:none;}
+
+  .leaflet-popup-content-wrapper{background:var(--navy-800); color:var(--paper); border-radius:4px;}
+  .leaflet-popup-tip{background:var(--navy-800);}
+
+  /* ---------- Patroller view ---------- */
+  #patrollerView{display:none; flex-direction:column; width:100%;}
+  #patrollerView.show{display:flex;}
+  #patrollerTop{background:var(--navy-800); padding:10px 16px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  #patrollerTop .youAre{font-family:'Oswald'; font-size:14px; font-weight:600;}
+  #patrollerTop .youAre small{display:block; font-family:'IBM Plex Mono'; font-size:10px; color:var(--paper-dim); font-weight:400;}
+  #patrollerMap{flex:1;}
+  #patrollerBottom{background:var(--navy-800); border-top:2px solid var(--line); padding:12px 16px; max-height:38vh; overflow-y:auto;}
+  .statusBtns{display:flex; gap:6px; margin-bottom:10px;}
+  .statusBtns button{flex:1; padding:11px 4px; border-radius:4px; border:1px solid var(--navy-600); background:var(--navy-900); color:var(--paper-dim); font-family:'Oswald'; font-size:11px; letter-spacing:0.04em; text-transform:uppercase; cursor:pointer; min-height:44px;}
+  .statusBtns button.active.available{background:var(--green); color:var(--navy-900); border-color:var(--green); font-weight:600;}
+  .statusBtns button.active.responding{background:var(--amber); color:var(--navy-900); border-color:var(--amber); font-weight:600;}
+  .statusBtns button.active.onscene{background:var(--red); color:var(--paper); border-color:var(--red); font-weight:600;}
+  #instructionsBox h4{margin:0 0 8px 0; font-size:12px; font-family:'Oswald'; color:var(--gold); text-transform:uppercase; letter-spacing:0.08em;}
+  #instructionsList{height:180px; min-height:70px; max-height:70vh; overflow-y:auto; resize:vertical;}
+  .msg{background:var(--navy-900); border-left:3px solid var(--gold); padding:8px 10px; border-radius:0 4px 4px 0; margin-bottom:8px; font-size:13px;}
+  .msg .meta{font-family:'IBM Plex Mono'; font-size:10px; color:var(--paper-dim); margin-top:4px;}
+  .empty{color:var(--paper-dim); font-size:12.5px; font-style:italic;}
+
+  /* ---------- Tablet / small laptop ---------- */
+  @media (min-width:769px) and (max-width:1024px){
+    #opSidebar{width:280px;}
+    #ticker{height:100px;}
+  }
+
+  /* ---------- Mobile layout ---------- */
+  @media (max-width:768px){
+    #appHeader{padding:0 8px; gap:8px;}
+    .brand .title small{display:none;}
+    .brand .title{font-size:12.5px;}
+    .brand .mark{width:22px; height:22px; font-size:10px;}
+    #syncBadge{font-size:0; gap:0;}
+    #syncBadge .dot{width:8px; height:8px;}
+    #identityLabel{max-width:96px;}
+
+    select, textarea, input[type=text], input[type=password], input[type=number]{font-size:16px; padding:10px;}
+
+    .navBtn{padding:11px 13px; font-size:11px;}
+
+    #opSidebar{
+      position:fixed; top:0; left:0; right:0; bottom:0; width:100%;
+      z-index:25; transform:translateX(-100%); transition:transform .22s ease; border-right:none;
+      padding-bottom:env(safe-area-inset-bottom, 0px);
+    }
+    #opSidebar.open{transform:translateX(0);}
+
+    #opPanelSelectWrap{padding:10px 14px;}
+    .accBody{padding:0 14px 14px;}
+    .unitCard{padding:12px 14px;}
+
+    #consoleToggle{
+      display:flex; align-items:center; gap:6px;
+      position:absolute; left:12px; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); z-index:15;
+      background:var(--gold); color:var(--navy-900); border:none; border-radius:20px;
+      padding:12px 18px; font-family:'Oswald'; font-weight:600; font-size:12px;
+      letter-spacing:0.05em; text-transform:uppercase; box-shadow:0 2px 10px rgba(0,0,0,0.4);
+      cursor:pointer; min-height:44px;
+    }
+    #closeOpSidebar{display:flex; width:36px; height:36px;}
+    #tickerHead{display:flex;}
+    #ticker{height:110px; padding:6px 14px;}
+    #opActivityLog.comboActivityPanel{max-height:none;}
+    #opActivityTicker{max-height:none;}
+
+    #patrollerTop{padding:10px 14px;}
+    .statusBtns button{padding:13px 4px; font-size:10.5px; min-height:46px;}
+    #patrollerBottom{max-height:44dvh; padding:12px 14px; padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px));}
+
+    .leaflet-touch .leaflet-bar a{width:36px; height:36px; line-height:34px;}
+    .leaflet-top.leaflet-right{top:10px; right:10px;}
+  }
+  @media (max-width:380px){
+    #appHeader{gap:4px;}
+    .brand .title{font-size:11.5px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN SCREEN ================= -->
+<div id="loginScreen">
+  <div class="loginCard">
+    <div class="loginMark" id="loginMark">S</div>
+    <h1 id="loginAppName">RESPONDE</h1>
+    <p class="subtitle" id="loginSubtitle">Pursuit Coordination Prototype</p>
+
+    <div id="googleSignInSection" class="hidden">
+      <div id="googleSignInBtn"></div>
+      <div class="errText" id="googleLoginError" style="text-align:center;"></div>
+    </div>
+    <div class="orDivider hidden" id="loginOrDivider">or</div>
+
+    <div class="roleChoices" id="roleChoices">
+      <button class="btn block" id="choosePatrollerBtn">Login as Patroller</button>
+      <button class="btn block secondary" id="chooseTocBtn">Login as TOC</button>
+    </div>
+
+    <div class="loginPanel" id="patrollerLoginPanel">
+      <button class="backLink" data-back>&larr; Back</button>
+      <div class="field">
+        <label for="loginUnitSelect">Select your unit</label>
+        <select id="loginUnitSelect"><option value="">Loading units...</option></select>
+      </div>
+      <button class="btn block" id="patrollerLoginBtn" disabled>Login as Patroller</button>
+      <div class="errText" id="patrollerLoginError"></div>
+    </div>
+
+    <div class="loginPanel" id="tocLoginPanel">
+      <button class="backLink" data-back>&larr; Back</button>
+      <div class="field">
+        <label for="tocPasscodeInput">TOC passcode</label>
+        <input type="password" id="tocPasscodeInput" autocomplete="off" placeholder="Enter passcode">
+      </div>
+      <button class="btn block" id="tocLoginBtn">Login as TOC</button>
+      <div class="errText" id="tocLoginError"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP SHELL ================= -->
+<div id="appShell">
+
+  <div id="marquee" tabindex="0"><span class="track" id="marqueeTrack">Loading operation feed…</span></div>
+
+  <div id="appHeader">
+    <div class="brand">
+      <div class="mark" id="headerMark">S</div>
+      <div class="title" id="headerTitle">RESPONDE<small id="headerSubtitle">Pursuit Coordination Prototype</small></div>
+    </div>
+    <div id="identityWrap">
+      <span id="syncBadge"><span class="dot"></span><span id="syncText">synced 0s ago</span></span>
+      <span id="identityLabel"></span>
+      <button class="btn small secondary" id="logoutBtn">Logout</button>
+    </div>
+  </div>
+
+  <!-- TOC MENU — horizontal bar directly below the app name -->
+  <nav id="sideNav">
+    <button class="navBtn active" data-section="operations">Operations</button>
+    <button class="navBtn" data-section="units">Units / Patrollers</button>
+    <button class="navBtn" data-section="types">Incident Types</button>
+    <button class="navBtn" data-section="settings">Settings</button>
+    <button class="navBtn" data-section="log">Activity Log</button>
+    <button class="navBtn logoutBtn" id="sideNavLogout"></button>
+  </nav>
+
+  <div id="appBody">
+
+    <div id="mainArea">
+
+      <!-- OPERATIONS -->
+      <div class="tocSection active" id="sec-operations">
+        <div id="opSidebar">
+          <div id="opSidebarTop">
+            <span class="opSidebarTitle"></span>
+            <div id="closeOpSidebar">&times;</div>
+          </div>
+
+          <div id="opPanelSelectWrap">
+            <select id="opPanelSelect" aria-label="Operations panel">
+              <option value="incident" selected>New Incident</option>
+              <option value="markers">Points &amp; Checkpoints</option>
+              <option value="units">Units in Area</option>
+              <option value="log">Activity Log</option>
+            </select>
+          </div>
+
+          <div class="accPanel comboActive" data-acc="incident">
+            <button type="button" class="accHead">
+              <h3>New Incident</h3>
+              <span class="accChev">&#9662;</span>
+            </button>
+            <div class="accBody">
+              <div class="field">
+                <label for="incType">Type</label>
+                <select id="incType"></select>
+              </div>
+              <div class="field">
+                <label for="incDesc">Description</label>
+                <textarea id="incDesc" placeholder="Brief details..."></textarea>
+              </div>
+              <div class="hint" id="pinHint">Click on the map to place the incident location, then broadcast.</div>
+              <button class="btn block" id="broadcastBtn">Broadcast Incident</button>
+            </div>
+          </div>
+
+          <div class="accPanel" data-acc="markers">
+            <button type="button" class="accHead">
+              <h3>Points &amp; Checkpoints</h3>
+              <span class="accChev">&#9662;</span>
+            </button>
+            <div class="accBody">
+              <div class="segToggle" id="markerTypeToggle">
+                <button type="button" class="segBtn active" data-markertype="point">Point</button>
+                <button type="button" class="segBtn" data-markertype="checkpoint">Checkpoint</button>
+              </div>
+
+              <div id="pointForm">
+                <div class="field"><label for="pointLabel">Label</label><input type="text" id="pointLabel" placeholder="e.g. Point A" maxlength="40"></div>
+                <div class="field"><label for="pointNote">Direction / note (optional)</label><textarea id="pointNote" placeholder="e.g. Mobile 3 proceed and hold"></textarea></div>
+                <div class="hint" id="pointHint">Click on the map to place this point.</div>
+                <button class="btn block" id="placePointBtn">Place Point</button>
+              </div>
+
+              <div id="checkpointForm" style="display:none;">
+                <div class="field"><label for="cpLabel">Checkpoint name</label><input type="text" id="cpLabel" placeholder="e.g. Checkpoint Alpha - Hwy Junction" maxlength="60"></div>
+                <div class="field"><label for="cpRadius">Radius (meters)</label><input type="number" id="cpRadius" value="150" min="10" max="2000"></div>
+                <div class="field"><label for="cpNote">Instructions (optional)</label><textarea id="cpNote" placeholder="e.g. Flag down all northbound vehicles"></textarea></div>
+                <div class="hint" id="cpHint">Click on the map to place the checkpoint.</div>
+                <button class="btn block" id="broadcastCheckpointBtn">Broadcast Checkpoint</button>
+              </div>
+
+              <div id="markerListWrap">
+                <div class="hint" style="margin:14px 0 6px;">Active on map</div>
+                <div id="markerList"><div class="empty">No points or checkpoints yet.</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accPanel unitsPanel" data-acc="units">
+            <button type="button" class="accHead">
+              <h3>Units in Area</h3>
+              <span class="accChev">&#9662;</span>
+            </button>
+            <div class="accBody">
+              <div id="unitList"></div>
+              <div id="dispatchBox">
+                <div class="dispatchBoxHead">
+                  <h4 id="dispatchTitle">Instruct Unit</h4>
+                  <button type="button" id="closeDispatchBox" aria-label="Close">&times;</button>
+                </div>
+                <textarea id="dispatchMsg" placeholder="e.g. Proceed to Point A and hold"></textarea>
+                <button class="btn small block" id="sendDispatch">Send Instruction</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="opActivityLog" class="accPanel comboActivityPanel" data-acc="log">
+            <div class="opActivityHead"><span>Activity Log</span></div>
+            <div id="opActivityTicker"></div>
+          </div>
+        </div>
+        <div id="opMapWrap">
+          <div id="map"></div>
+          <button id="consoleToggle">&#9776; Console</button>
+        </div>
+      </div>
+
+      <!-- UNITS / PATROLLERS -->
+      <div class="tocSection" id="sec-units">
+        <div class="scrollPanel">
+          <div class="card">
+            <h3>Add Unit</h3>
+            <div class="row2">
+              <div class="field"><label for="newUnitId">UnitID (optional — auto-suggested)</label><input type="text" id="newUnitId" placeholder="e.g. U6"></div>
+              <div class="field"><label for="newUnitName">Name</label><input type="text" id="newUnitName" placeholder="e.g. Mobile 6 - PO2 Diaz"></div>
+            </div>
+            <div class="field"><label for="newUnitEmail">Gmail address (optional — lets them use Google sign-in)</label><input type="text" id="newUnitEmail" placeholder="e.g. diaz@gmail.com"></div>
+            <button class="btn" id="addUnitBtn">Add Unit</button>
+            <div class="errText" id="addUnitError"></div>
+          </div>
+          <div class="card">
+            <h3>All Units</h3>
+            <table class="dataTable"><thead><tr><th>UnitID</th><th>Name</th><th>Gmail</th><th>Status</th><th></th></tr></thead>
+              <tbody id="unitsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- INCIDENT TYPES -->
+      <div class="tocSection" id="sec-types">
+        <div class="scrollPanel">
+          <div class="card">
+            <h3>Add Incident Type</h3>
+            <div class="field"><label for="newTypeName">Name</label><input type="text" id="newTypeName" placeholder="e.g. Hostage situation"></div>
+            <button class="btn" id="addTypeBtn">Add Incident Type</button>
+            <div class="errText" id="addTypeError"></div>
+          </div>
+          <div class="card">
+            <h3>All Incident Types</h3>
+            <table class="dataTable"><thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
+              <tbody id="typesTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="tocSection" id="sec-settings">
+        <div class="scrollPanel">
+          <div class="card">
+            <h3>Application Identity</h3>
+            <div class="row2">
+              <div class="field"><label for="setAppName">App name</label><input type="text" id="setAppName"></div>
+              <div class="field"><label for="setAppSubtitle">Subtitle / tagline</label><input type="text" id="setAppSubtitle"></div>
+            </div>
+            <button class="btn" id="saveIdentityBtn">Save Identity</button>
+            <div class="errText" id="identityError"></div>
+          </div>
+
+          <div class="card">
+            <h3>Marquee Message</h3>
+            <div class="field"><label for="setMarquee">Scrolling operation description</label><textarea id="setMarquee" style="min-height:70px;"></textarea></div>
+            <div class="hint">Preview:</div>
+            <div id="marqueePreview" style="border:1px solid var(--line); border-radius:4px; padding:8px; font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--gold-bright); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin-bottom:10px;"></div>
+            <button class="btn" id="saveMarqueeBtn">Save Marquee</button>
+            <div class="errText" id="marqueeError"></div>
+          </div>
+
+          <div class="card">
+            <h3>Default Map Location</h3>
+            <div class="row2">
+              <div class="field"><label for="setLat">Latitude</label><input type="number" step="0.000001" id="setLat"></div>
+              <div class="field"><label for="setLng">Longitude</label><input type="number" step="0.000001" id="setLng"></div>
+            </div>
+            <div class="field" style="max-width:160px;"><label for="setZoom">Zoom (1–20)</label><input type="number" id="setZoom" min="1" max="20"></div>
+            <button class="btn ghost small" id="useCurrentLocBtn" type="button">Use current location</button>
+            <div style="height:220px; border-radius:6px; overflow:hidden; margin:10px 0; border:1px solid var(--line);" id="settingsPickerMap"></div>
+            <div class="hint">Click the map to set the default coordinates.</div>
+            <button class="btn" id="saveDefaultLocBtn">Save Default Location</button>
+            <div class="errText" id="locError"></div>
+          </div>
+
+          <div class="card">
+            <h3>TOC Passcode</h3>
+            <div class="field"><label for="curPasscode">Current passcode</label><input type="password" id="curPasscode" autocomplete="off"></div>
+            <div class="row2">
+              <div class="field"><label for="newPasscode">New passcode (min 6 chars)</label><input type="password" id="newPasscode" autocomplete="off"></div>
+              <div class="field"><label for="confirmPasscode">Confirm new passcode</label><input type="password" id="confirmPasscode" autocomplete="off"></div>
+            </div>
+            <button class="btn" id="changePasscodeBtn">Change Passcode</button>
+            <div class="errText" id="passcodeError"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVITY LOG -->
+      <div class="tocSection" id="sec-log">
+        <div class="scrollPanel" style="max-width:900px;">
+          <div class="card" id="logSection" style="padding:0;">
+            <div style="padding:14px 16px 0;"><h3>Activity Log</h3></div>
+            <div id="ticker"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PATROLLER VIEW -->
+      <div id="patrollerView">
+        <div id="patrollerTop">
+          <span class="youAre" id="patrollerIdentityLabel">Unit —<small>Not logged in</small></span>
+        </div>
+        <div id="patrollerMap"></div>
+        <div id="patrollerBottom">
+          <div class="statusBtns">
+            <button data-status="available" class="stBtn">Available</button>
+            <button data-status="responding" class="stBtn">Responding</button>
+            <button data-status="onscene" class="stBtn">On Scene</button>
+          </div>
+          <div id="instructionsBox">
+            <h4>Instructions from Operator</h4>
+            <div id="instructionsList"><div class="empty">No instructions yet.</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- #mainArea -->
+  </div><!-- #appBody -->
+
+  <div id="appFooter">Developed by @RekzBanz</div>
+</div><!-- #appShell -->
+
+<div id="toastStack"></div>
+
+<script>
+/* =========================================================================
+   RESPONDE — role-gated console + patroller app.
+   Talks to a Google Apps Script backend (Sheets-backed). If GAS_URL isn't
+   set, the app runs in an offline demo mode against local mock data so the
+   UI, login, and TOC settings can still be explored end-to-end.
+   ========================================================================= */
+
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzlL6xNOQzyt52kzzeYWM6E61ZQoIetgXZFgLYTKcgwhKv9bXzfbRgIji_wKIHj1YKh/exec";
+const LIVE = GAS_URL.indexOf('PASTE_YOUR') === -1;
+const POLL_MS = 5000;
+
+// OAuth 2.0 Web Client ID from Google Cloud Console (APIs & Services >
+// Credentials). Leave the placeholder as-is to keep Gmail login hidden and
+// fall back to unit-select / TOC passcode login only.
+const GOOGLE_CLIENT_ID = "959634881019-jlmu0f3eq8fb373bpvfgq8b3knv0cgdf.apps.googleusercontent.com";
+const GOOGLE_SIGNIN_CONFIGURED = GOOGLE_CLIENT_ID.indexOf('PASTE_YOUR') === -1;
+
+/* ---------------- Transport ---------------- */
+async function gasCall(action, params){
+  const qs = new URLSearchParams({action, ...params}).toString();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(), 8000);
+  try{
+    const res = await fetch(`${GAS_URL}?${qs}`, { signal: controller.signal });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  }catch(err){
+    if(err.name === 'AbortError') throw new Error('Request timed out');
+    throw err;
+  }finally{
+    clearTimeout(timeoutId);
+  }
+}
+
+async function gasPost(action, data){
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(), 10000);
+  try{
+    const res = await fetch(GAS_URL, {
+      method:'POST',
+      body: JSON.stringify({ action, token: session.token, ...data })
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  }catch(err){
+    if(err.name === 'AbortError') throw new Error('Request timed out');
+    throw err;
+  }finally{
+    clearTimeout(timeoutId);
+  }
+}
+
+/* ---------------- Offline mock store (used when LIVE is false) ---------------- */
+const MOCK = {
+  settings: {
+    appName:'RESPONDE', appSubtitle:'Pursuit Coordination Prototype',
+    marqueeText:'RESPONDE pursuit coordination is active — this is an offline demo. Configure this message from TOC Settings.',
+    defaultLat:'8.7550', defaultLng:'124.9550', defaultZoom:'14'
+  },
+  passcode: localStorage.getItem('RESPONDE_mock_passcode') || 'admin123',
+  units: [
+    {id:'U1', name:'Mobile 1 - PO2 Reyes', lat:8.7610, lng:124.9470, status:'available', active:true, email:''},
+    {id:'U2', name:'Mobile 2 - PO1 Santos', lat:8.7500, lng:124.9650, status:'available', active:true, email:''},
+    {id:'U3', name:'Mobile 3 - PO3 Cruz',   lat:8.7660, lng:124.9590, status:'available', active:true, email:''},
+    {id:'U4', name:'Foot Patrol - PO1 Diaz',lat:8.7460, lng:124.9520, status:'available', active:true, email:''},
+    {id:'U5', name:'Mobile 5 - PO2 Ramos',  lat:8.7570, lng:124.9690, status:'available', active:true, email:''},
+  ],
+  incidentTypes: [
+    {id:'IT-1', name:'Theft in progress', active:true},
+    {id:'IT-2', name:'Armed suspect fled', active:true},
+    {id:'IT-3', name:'Vehicle pursuit', active:true},
+    {id:'IT-4', name:'Robbery', active:true},
+    {id:'IT-5', name:'Other', active:true},
+  ],
+  incidents: [],
+  points: [],
+  checkpoints: [],
+  instructions: {}
+};
+function saveMockPasscode(){ localStorage.setItem('RESPONDE_mock_passcode', MOCK.passcode); }
+
+/* ---------------- Toasts ---------------- */
+function showToast(msg, type){
+  const stack = document.getElementById('toastStack');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type ? ' '+type : '');
+  t.textContent = msg;
+  stack.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(), 250); }, 3800);
+}
+
+/* ---------------- Busy-button helper ---------------- */
+function setBusy(btn, label){
+  if(!btn) return;
+  btn.dataset.origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = label || 'Working...';
+}
+function clearBusy(btn){
+  if(!btn) return;
+  btn.disabled = false;
+  if(btn.dataset.origText) btn.textContent = btn.dataset.origText;
+}
+
+function nowStr(){ return new Date().toLocaleTimeString('en-PH', {hour12:false}); }
+
+/* ---------------- Session ---------------- */
+const session = {
+  role: sessionStorage.getItem('RESPONDE_role') || null,
+  token: sessionStorage.getItem('RESPONDE_toc_token') || null,
+  unitId: localStorage.getItem('RESPONDE_self_id') || null,
+  unitName: null
+};
+
+function persistSession(){
+  if(session.role) sessionStorage.setItem('RESPONDE_role', session.role); else sessionStorage.removeItem('RESPONDE_role');
+  if(session.token) sessionStorage.setItem('RESPONDE_toc_token', session.token); else sessionStorage.removeItem('RESPONDE_toc_token');
+  if(session.unitId) localStorage.setItem('RESPONDE_self_id', session.unitId); else localStorage.removeItem('RESPONDE_self_id');
+}
+
+function logout(){
+  if(LIVE && session.role==='toc' && session.token){
+    gasPost('tocLogout', {}).catch(()=>{});
+  }
+  if(window.google && window.google.accounts && window.google.accounts.id){
+    google.accounts.id.disableAutoSelect();
+  }
+  session.role = null; session.token = null; session.unitId = null; session.unitName = null;
+  persistSession();
+  document.getElementById('appShell').classList.remove('show');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  showLoginRoot();
+  location.reload(); // simplest safe reset for map instances / watchers
+}
+document.getElementById('logoutBtn').addEventListener('click', logout);
+document.getElementById('sideNavLogout').addEventListener('click', logout);
+
+/* ---------------- App-wide bootstrap data ---------------- */
+let appData = { settings:{}, incidentTypes:[], units:[] };
+
+async function loadBootstrap(){
+  if(LIVE){
+    const res = await gasCall('bootstrap', {});
+    if(!res.ok) throw new Error(res.error || 'Failed to load app configuration');
+    appData = res.data;
+  } else {
+    appData = {
+      settings: MOCK.settings,
+      incidentTypes: MOCK.incidentTypes.filter(t=>t.active).map(t=>({id:t.id,name:t.name})),
+      units: MOCK.units.filter(u=>u.active).map(u=>({id:u.id,name:u.name})),
+      incidents: MOCK.incidents
+    };
+  }
+  applyBranding();
+}
+
+function applyBranding(){
+  const s = appData.settings || {};
+  const name = s.appName || 'RESPONDE';
+  const subtitle = s.appSubtitle || '';
+  document.getElementById('pageTitle').textContent = name + ' — Pursuit Coordination';
+  document.getElementById('loginAppName').textContent = name;
+  document.getElementById('loginSubtitle').textContent = subtitle;
+  document.getElementById('loginMark').textContent = name.charAt(0).toUpperCase() || 'S';
+  document.getElementById('headerMark').textContent = name.charAt(0).toUpperCase() || 'S';
+  document.getElementById('headerTitle').firstChild.textContent = name + ' ';
+  document.getElementById('headerSubtitle').textContent = subtitle;
+  const track = document.getElementById('marqueeTrack');
+  track.textContent = s.marqueeText || '';
+}
+
+/* ================= GOOGLE SIGN-IN ================= */
+// Renders the "Sign in with Google" button once the GIS script has loaded.
+// Silently does nothing if LIVE is false or GOOGLE_CLIENT_ID isn't set —
+// the unit-select / TOC passcode flow keeps working as the only login path.
+function initGoogleSignIn(attempt){
+  attempt = attempt || 0;
+  if(!LIVE || !GOOGLE_SIGNIN_CONFIGURED) return;
+  if(!(window.google && window.google.accounts && window.google.accounts.id)){
+    if(attempt < 25) setTimeout(()=>initGoogleSignIn(attempt+1), 200);
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogleCredential
+  });
+  document.getElementById('googleSignInSection').classList.remove('hidden');
+  document.getElementById('loginOrDivider').classList.remove('hidden');
+  google.accounts.id.renderButton(document.getElementById('googleSignInBtn'), {
+    theme:'outline', size:'large', width:320, text:'signin_with'
+  });
+}
+
+async function handleGoogleCredential(response){
+  const errEl = document.getElementById('googleLoginError');
+  errEl.textContent = '';
+  try{
+    const res = await gasPostRaw('googleLogin', {credential: response.credential});
+    if(!res.ok) throw new Error(res.error || 'Google sign-in failed.');
+    session.role = res.role;
+    if(res.role === 'toc'){
+      session.token = res.token;
+    } else {
+      session.unitId = res.unitId;
+      session.unitName = res.unitName;
+    }
+    persistSession();
+    enterApp();
+  }catch(err){
+    errEl.textContent = err.message;
+    showToast('Google sign-in failed: ' + err.message, 'error');
+  }
+}
+
+/* ================= LOGIN SCREEN LOGIC ================= */
+function showLoginRoot(){
+  document.getElementById('roleChoices').style.display='flex';
+  document.getElementById('patrollerLoginPanel').classList.remove('show');
+  document.getElementById('tocLoginPanel').classList.remove('show');
+}
+document.getElementById('choosePatrollerBtn').addEventListener('click', async ()=>{
+  document.getElementById('roleChoices').style.display='none';
+  document.getElementById('patrollerLoginPanel').classList.add('show');
+  await populateLoginUnitDropdown();
+});
+document.getElementById('chooseTocBtn').addEventListener('click', ()=>{
+  document.getElementById('roleChoices').style.display='none';
+  document.getElementById('tocLoginPanel').classList.add('show');
+  document.getElementById('tocPasscodeInput').focus();
+});
+document.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click', showLoginRoot));
+
+async function populateLoginUnitDropdown(){
+  const sel = document.getElementById('loginUnitSelect');
+  sel.innerHTML = '<option value="">-- Select your unit --</option>';
+  (appData.units || []).forEach(u=>{
+    const o = document.createElement('option');
+    o.value = u.id; o.textContent = u.name;
+    sel.appendChild(o);
+  });
+  document.getElementById('patrollerLoginBtn').disabled = true;
+}
+document.getElementById('loginUnitSelect').addEventListener('change', (e)=>{
+  document.getElementById('patrollerLoginBtn').disabled = !e.target.value;
+});
+
+document.getElementById('patrollerLoginBtn').addEventListener('click', ()=>{
+  const sel = document.getElementById('loginUnitSelect');
+  if(!sel.value) return;
+  const btn = document.getElementById('patrollerLoginBtn');
+  setBusy(btn, 'Logging in...');
+  session.role = 'patroller';
+  session.unitId = sel.value;
+  session.unitName = sel.options[sel.selectedIndex].textContent;
+  persistSession();
+  setTimeout(()=>{ clearBusy(btn); enterApp(); }, 150);
+});
+
+document.getElementById('tocLoginBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('tocPasscodeInput');
+  const errEl = document.getElementById('tocLoginError');
+  const btn = document.getElementById('tocLoginBtn');
+  errEl.textContent = '';
+  const passcode = input.value;
+  if(!passcode){ errEl.textContent = 'Enter the TOC passcode.'; return; }
+  setBusy(btn, 'Logging in...');
+  try{
+    if(LIVE){
+      const res = await gasPostRaw('tocLogin', {passcode});
+      if(!res.ok) throw new Error(res.error || 'Login failed.');
+      session.role = 'toc'; session.token = res.token;
+    } else {
+      if(passcode !== MOCK.passcode) throw new Error('Incorrect passcode.');
+      session.role = 'toc'; session.token = 'mock-token';
+    }
+    persistSession();
+    input.value = '';
+    enterApp();
+  }catch(err){
+    errEl.textContent = err.message;
+  }finally{
+    clearBusy(btn);
+  }
+});
+// tocLogin has no session token yet, so bypass the session-attaching gasPost wrapper
+async function gasPostRaw(action, data){
+  const controller = new AbortController();
+  const timeoutId = setTimeout(()=>controller.abort(), 10000);
+  try{
+    const res = await fetch(GAS_URL, { method:'POST', body: JSON.stringify({ action, ...data }) });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  }catch(err){
+    if(err.name === 'AbortError') throw new Error('Request timed out');
+    throw err;
+  }finally{
+    clearTimeout(timeoutId);
+  }
+}
+document.getElementById('tocPasscodeInput').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') document.getElementById('tocLoginBtn').click();
+});
+
+/* ================= ENTER APP ================= */
+function enterApp(){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('appShell').classList.add('show');
+  document.getElementById('identityLabel').textContent = session.role==='toc'
+    ? 'TOC Operator' : (session.unitName || session.unitId || '');
+  if(session.role === 'toc'){
+    document.getElementById('sideNav').style.display = 'flex';
+    initTocApp();
+  } else {
+    document.getElementById('sideNav').style.display = 'none';
+    // Patrollers never need the TOC operations panel (New Incident / Units
+    // in Area). It defaults to "active" in the markup for the TOC view, so
+    // explicitly hide all tocSections here or it renders alongside the
+    // patroller map (the empty/duplicated panel seen on the patroller page).
+    document.querySelectorAll('.tocSection').forEach(s=>s.classList.remove('active'));
+    initPatrollerApp();
+  }
+  startMarqueeReduced();
+}
+
+function startMarqueeReduced(){
+  // duration scales roughly with text length so long messages don't rush by
+  const track = document.getElementById('marqueeTrack');
+  const len = (track.textContent||'').length;
+  track.style.animationDuration = Math.max(14, Math.min(60, len * 0.28)) + 's';
+}
+
+/* ================= TOC MENU (horizontal) ================= */
+document.querySelectorAll('.navBtn[data-section]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.navBtn[data-section]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tocSection').forEach(s=>s.classList.remove('active'));
+    document.getElementById('sec-' + btn.dataset.section).classList.add('active');
+    btn.scrollIntoView({block:'nearest', inline:'center'});
+    if(btn.dataset.section === 'operations') setTimeout(()=>opMap && opMap.invalidateSize(), 60);
+    if(btn.dataset.section === 'units'){ renderUnitsTable(); refreshUnitsFull().then(renderUnitsTable).catch(()=>{}); }
+    if(btn.dataset.section === 'types') renderTypesTable();
+    if(btn.dataset.section === 'settings') { populateSettingsForm(); setTimeout(()=>settingsPickerMap && settingsPickerMap.invalidateSize(), 60); }
+    if(btn.dataset.section === 'log') renderTicker();
+  });
+});
+
+/* ================= SHARED STATE / MAP HELPERS ================= */
+const state = {
+  incidents: [],
+  units: [],
+  points: [],
+  checkpoints: [],
+  instructions: {},
+  log: [],
+  selectedUnit: null,
+  placingMode: null, // null | 'incident' | 'point' | 'checkpoint'
+};
+
+function addLog(text, urgent){
+  if(state.log.length && state.log[0].text === text){
+    state.log[0].count = (state.log[0].count||1) + 1;
+    state.log[0].time = nowStr();
+  } else {
+    state.log.unshift({text, time: nowStr(), urgent, count:1});
+    if(state.log.length > 200) state.log.pop();
+  }
+  renderTicker();
+}
+
+function unitIcon(u, isSelf){
+  const color = u.status==='available' ? '#3aa06a' : u.status==='responding' ? '#d99a2b' : '#d6483f';
+  return L.divIcon({
+    className:'', iconSize:[isSelf?20:16, isSelf?20:16],
+    html:`<div style="width:${isSelf?20:16}px;height:${isSelf?20:16}px;border-radius:50%;background:${color};border:2px solid ${isSelf?'#fff':'#0a1524'};box-shadow:0 0 6px rgba(0,0,0,0.6);"></div>`
+  });
+}
+function incidentIcon(){
+  return L.divIcon({
+    className:'', iconSize:[26,26],
+    html:`<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;background:#d6483f;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 0 8px rgba(214,72,63,0.8);"></div>`
+  });
+}
+// Short badge shown inside a point pin, e.g. "Point A" -> "A".
+function pointBadge(label){
+  const m = /point\s*([a-z0-9]+)/i.exec(label||'');
+  if(m) return m[1].toUpperCase().slice(0,2);
+  return (label||'?').trim().charAt(0).toUpperCase() || '?';
+}
+function pointIcon(label){
+  const badge = escapeHtml(pointBadge(label));
+  return L.divIcon({
+    className:'', iconSize:[28,30], iconAnchor:[14,28],
+    html:`<div style="width:28px;height:28px;position:relative;">
+            <svg width="28" height="28" viewBox="0 0 28 28" style="position:absolute;top:0;left:0;">
+              <path d="M14 27 C14 27 4 16.5 4 10 A10 10 0 0 1 24 10 C24 16.5 14 27 14 27 Z" fill="#c9a227" stroke="#0a1524" stroke-width="1.5"/>
+            </svg>
+            <span style="position:absolute; top:5px; left:0; width:28px; text-align:center; font-family:'Oswald',sans-serif; font-weight:700; font-size:10.5px; color:#0a1524; line-height:1;">${badge}</span>
+          </div>`
+  });
+}
+// Keeps a Leaflet layer per item id in sync with a state array: creates new
+// layers, updates existing ones in place, and removes layers whose item was
+// cleared — used for points and checkpoints on both the TOC and patroller maps.
+function syncMarkerLayers(map, layerStore, items, createFn, updateFn){
+  const seen = {};
+  (items||[]).forEach(it=>{
+    seen[it.id] = true;
+    if(!layerStore[it.id]){
+      layerStore[it.id] = createFn(it);
+    } else {
+      updateFn(layerStore[it.id], it);
+    }
+  });
+  Object.keys(layerStore).forEach(id=>{
+    if(!seen[id]){
+      map.removeLayer(layerStore[id]);
+      delete layerStore[id];
+    }
+  });
+}
+function distanceMeters(a,b,c,d){
+  const R=6371000, toRad = x=>x*Math.PI/180;
+  const dLat=toRad(c-a), dLng=toRad(d-b);
+  const A=Math.sin(dLat/2)**2 + Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLng/2)**2;
+  return Math.round(R*2*Math.atan2(Math.sqrt(A), Math.sqrt(1-A)));
+}
+
+function defaultCenterZoom(){
+  const s = appData.settings || {};
+  return {
+    lat: Number(s.defaultLat) || 8.7550,
+    lng: Number(s.defaultLng) || 124.9550,
+    zoom: Number(s.defaultZoom) || 14
+  };
+}
+
+/* ================= TOC APP ================= */
+let opMap, settingsPickerMap;
+let opMarkers = {}, opIncidentMarkers = {}, opPointMarkers = {}, opCheckpointCircles = {};
+let tocInited = false;
+
+function initTocApp(){
+  if(tocInited) return;
+  tocInited = true;
+
+  const c = defaultCenterZoom();
+  opMap = L.map('map', {zoomControl:true}).setView([c.lat, c.lng], c.zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'&copy; OpenStreetMap contributors', maxZoom:19
+  }).addTo(opMap);
+
+  populateIncidentTypeSelect();
+  buildTickerUI();
+  wireOperationsPanel();
+  wireOperationsCombo();
+  wireMarkerTypeToggle();
+  renderUnitsTable();
+  refreshUnitsFull().then(renderUnitsTable).catch(()=>{});
+  renderTypesTable();
+
+  document.getElementById('consoleToggle').addEventListener('click', ()=>opSidebarEl.classList.add('open'));
+  document.getElementById('closeOpSidebar').addEventListener('click', ()=>opSidebarEl.classList.remove('open'));
+
+  wireUnitsSection();
+  wireTypesSection();
+  wireSettingsSection();
+
+  if(LIVE){
+    pollState();
+  } else {
+    state.incidents = MOCK.incidents.map(i=>({...i}));
+    state.units = MOCK.units.filter(u=>u.active).map(u=>({...u}));
+    state.points = MOCK.points.map(p=>({...p}));
+    state.checkpoints = MOCK.checkpoints.map(c=>({...c}));
+    renderOpMap(); renderUnitList(); renderMarkerList();
+  }
+  addLog(LIVE ? 'TOC console initialized. Connected to live backend.' : 'TOC console initialized (offline demo mode — no GAS_URL set).');
+
+  setInterval(()=>{
+    if(LIVE) pollState();
+    else { simulateMovement(); renderOpMap(); renderUnitList(); }
+  }, POLL_MS);
+
+  window.addEventListener('resize', ()=>opMap.invalidateSize());
+}
+
+const opSidebarEl = document.getElementById('opSidebar');
+
+function populateIncidentTypeSelect(){
+  const sel = document.getElementById('incType');
+  sel.innerHTML='';
+  (appData.incidentTypes||[]).forEach(t=>{
+    const o = document.createElement('option');
+    o.value = t.name; o.textContent = t.name;
+    sel.appendChild(o);
+  });
+}
+
+function buildTickerUI(){
+  // Activity Log is displayed below "Units in Area" in the TOC operations sidebar.
+  renderTicker();
+}
+
+function renderTicker(){
+  const html = state.log.map(e=>`<div class="entry ${e.urgent?'urgent':''}"><span class="t">${e.time}</span>${escapeHtml(e.text)}${e.count>1?` <span class="reCount">(x${e.count})</span>`:''}</div>`).join('') || '<div class="empty" style="padding:10px 16px;">No activity yet.</div>';
+  const t = document.getElementById('ticker');
+  if(t) t.innerHTML = html;
+  const opT = document.getElementById('opActivityTicker');
+  if(opT) opT.innerHTML = html;
+}
+
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+function renderOpMap(){
+  state.units.forEach(u=>{
+    if(!opMarkers[u.id]){
+      opMarkers[u.id] = L.marker([u.lat,u.lng], {icon: unitIcon(u,false)}).addTo(opMap);
+      opMarkers[u.id].on('click', ()=>selectUnit(u.id));
+    } else {
+      opMarkers[u.id].setLatLng([u.lat,u.lng]);
+      opMarkers[u.id].setIcon(unitIcon(u,false));
+    }
+    opMarkers[u.id].bindTooltip(`${u.name} — ${u.status}`, {direction:'top'});
+  });
+  syncMarkerLayers(opMap, opIncidentMarkers, state.incidents,
+    (inc)=>{
+      const m = L.marker([inc.lat, inc.lng], {icon: incidentIcon()}).addTo(opMap);
+      m.bindTooltip(`${inc.type}${inc.desc ? ' — ' + inc.desc : ''}`, {direction:'top'});
+      return m;
+    },
+    (m, inc)=>{
+      m.setLatLng([inc.lat, inc.lng]);
+      m.bindTooltip(`${inc.type}${inc.desc ? ' — ' + inc.desc : ''}`, {direction:'top'});
+    }
+  );
+  syncMarkerLayers(opMap, opPointMarkers, state.points,
+    (pt)=>{
+      const m = L.marker([pt.lat, pt.lng], {icon: pointIcon(pt.label)}).addTo(opMap);
+      m.bindTooltip(pt.note ? `${pt.label} — ${pt.note}` : pt.label, {direction:'top'});
+      return m;
+    },
+    (m, pt)=>{
+      m.setLatLng([pt.lat, pt.lng]);
+      m.setIcon(pointIcon(pt.label));
+      m.bindTooltip(pt.note ? `${pt.label} — ${pt.note}` : pt.label, {direction:'top'});
+    }
+  );
+  syncMarkerLayers(opMap, opCheckpointCircles, state.checkpoints,
+    (cp)=>{
+      const c = L.circle([cp.lat, cp.lng], {radius: cp.radius, color:'#d99a2b', weight:2, fillColor:'#d99a2b', fillOpacity:0.15}).addTo(opMap);
+      c.bindTooltip(`${cp.label} — ${cp.radius}m radius${cp.note ? ' — ' + cp.note : ''}`, {direction:'top'});
+      return c;
+    },
+    (c, cp)=>{
+      c.setLatLng([cp.lat, cp.lng]);
+      c.setRadius(cp.radius);
+      c.bindTooltip(`${cp.label} — ${cp.radius}m radius${cp.note ? ' — ' + cp.note : ''}`, {direction:'top'});
+    }
+  );
+}
+
+/* ---- Points & checkpoints: shared helpers ---- */
+function nextPointLabel(){
+  const used = new Set(state.points.map(p=>(p.label||'').trim().toUpperCase()));
+  for(let i=0;i<26;i++){
+    const candidate = 'Point ' + String.fromCharCode(65+i);
+    if(!used.has(candidate.toUpperCase())) return candidate;
+  }
+  return 'Point ' + (state.points.length + 1);
+}
+function resetPlacementHints(){
+  const pin = document.getElementById('pinHint');
+  pin.textContent = 'Click on the map to place the incident location, then broadcast.';
+  pin.style.color = '';
+  const pt = document.getElementById('pointHint');
+  pt.textContent = 'Click on the map to place this point.';
+  pt.style.color = '';
+  const cp = document.getElementById('cpHint');
+  cp.textContent = 'Click on the map to place the checkpoint.';
+  cp.style.color = '';
+}
+function setOperationsPanel(panelName){
+  const select = document.getElementById('opPanelSelect');
+  if(!select) return;
+  const valid = ['incident','markers','units','log'];
+  if(!valid.includes(panelName)) panelName = 'incident';
+  select.value = panelName;
+
+  document.querySelectorAll('#opSidebar .accPanel[data-acc]').forEach(panel=>{
+    panel.classList.toggle('comboActive', panel.dataset.acc === panelName);
+  });
+
+  if(panelName === 'log'){
+    renderTicker();
+    const ticker = document.getElementById('opActivityTicker');
+    if(ticker) requestAnimationFrame(()=>{ ticker.scrollTop = ticker.scrollHeight; });
+  }
+  if(panelName === 'units') renderUnitList();
+}
+
+function wireOperationsCombo(){
+  const select = document.getElementById('opPanelSelect');
+  if(!select) return;
+  select.addEventListener('change', ()=>setOperationsPanel(select.value));
+  setOperationsPanel('incident');
+}
+function wireMarkerTypeToggle(){
+  const toggle = document.getElementById('markerTypeToggle');
+  toggle.querySelectorAll('.segBtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      toggle.querySelectorAll('.segBtn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const type = btn.dataset.markertype;
+      document.getElementById('pointForm').style.display = type === 'point' ? '' : 'none';
+      document.getElementById('checkpointForm').style.display = type === 'checkpoint' ? '' : 'none';
+      state.placingMode = null;
+      resetPlacementHints();
+    });
+  });
+}
+function renderMarkerList(){
+  const el = document.getElementById('markerList');
+  if(!el) return;
+  const items = [
+    ...state.incidents.map(i=>({...i, kind:'incident'})),
+    ...state.points.map(p=>({...p, kind:'point'})),
+    ...state.checkpoints.map(c=>({...c, kind:'checkpoint'}))
+  ].sort((a,b)=> (a.time||'') < (b.time||'') ? 1 : -1);
+  if(!items.length){ el.innerHTML = '<div class="empty">No incidents, points, or checkpoints yet.</div>'; return; }
+  el.innerHTML = items.map(it=>`
+    <div class="markerItem">
+      <div class="markerInfo">
+        <div class="markerTitle"><span class="markerTag ${it.kind==='incident'?'inc':it.kind==='point'?'pt':'cp'}">${it.kind==='incident'?'INC':it.kind==='point'?'PT':'CP'}</span>${escapeHtml(it.kind==='incident' ? it.type : it.label)}</div>
+        <div class="markerMeta">${it.kind==='incident' ? escapeHtml(it.desc||'') : it.kind==='checkpoint' ? it.radius+'m radius' : (it.note ? escapeHtml(it.note) : '')}</div>
+      </div>
+      <button class="btn small secondary" data-clear="${it.kind}:${it.id}">Clear</button>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-clear]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const [kind, id] = b.dataset.clear.split(':');
+      clearMarker(kind, id, b);
+    });
+  });
+}
+async function clearMarker(kind, id, btn){
+  setBusy(btn, '...');
+  try{
+    if(kind === 'incident'){
+      const inc = state.incidents.find(i=>i.id===id);
+      if(LIVE){
+        const res = await gasPost('removeIncident', {id});
+        if(res && res.ok === false) throw new Error(res.error);
+        await pollState();
+      } else {
+        MOCK.incidents = MOCK.incidents.filter(i=>i.id!==id);
+        state.incidents = MOCK.incidents.map(i=>({...i}));
+        renderOpMap(); renderMarkerList();
+      }
+      addLog(`INCIDENT CLEARED — ${inc ? inc.type : id}`, true);
+    } else if(kind === 'point'){
+      const pt = state.points.find(p=>p.id===id);
+      if(LIVE){
+        const res = await gasPost('removePoint', {id});
+        if(res && res.ok === false) throw new Error(res.error);
+        await pollState();
+      } else {
+        MOCK.points = MOCK.points.filter(p=>p.id!==id);
+        state.points = MOCK.points.map(p=>({...p}));
+        renderOpMap(); renderMarkerList();
+      }
+      addLog(`POINT REMOVED — ${pt ? pt.label : id}`);
+    } else {
+      const cp = state.checkpoints.find(c=>c.id===id);
+      if(LIVE){
+        const res = await gasPost('removeCheckpoint', {id});
+        if(res && res.ok === false) throw new Error(res.error);
+        await pollState();
+      } else {
+        MOCK.checkpoints = MOCK.checkpoints.filter(c=>c.id!==id);
+        state.checkpoints = MOCK.checkpoints.map(c=>({...c}));
+        renderOpMap(); renderMarkerList();
+      }
+      addLog(`CHECKPOINT CLEARED — ${cp ? cp.label : id}`);
+    }
+  }catch(err){
+    showToast('Could not clear: ' + err.message, 'error');
+    clearBusy(btn);
+  }
+}
+
+function wireOperationsPanel(){
+  function startPlacing(mode){
+    state.placingMode = mode;
+    resetPlacementHints();
+    if(mode === 'incident'){
+      const el = document.getElementById('pinHint');
+      el.style.color = 'var(--gold-bright)';
+      el.textContent = 'Click the map now to drop the incident pin...';
+    } else if(mode === 'point'){
+      const el = document.getElementById('pointHint');
+      el.style.color = 'var(--gold-bright)';
+      el.textContent = 'Click the map now to place the point...';
+    } else if(mode === 'checkpoint'){
+      const el = document.getElementById('cpHint');
+      el.style.color = 'var(--gold-bright)';
+      el.textContent = 'Click the map now to place the checkpoint...';
+    }
+    opSidebarEl.classList.remove('open');
+  }
+
+  document.getElementById('broadcastBtn').addEventListener('click', ()=>startPlacing('incident'));
+
+  document.getElementById('placePointBtn').addEventListener('click', ()=>{
+    const labelInput = document.getElementById('pointLabel');
+    if(!labelInput.value.trim()) labelInput.value = nextPointLabel();
+    startPlacing('point');
+  });
+
+  document.getElementById('broadcastCheckpointBtn').addEventListener('click', ()=>{
+    const radius = Number(document.getElementById('cpRadius').value);
+    if(isNaN(radius) || radius < 10 || radius > 2000){
+      showToast('Radius must be between 10 and 2000 meters.', 'error');
+      return;
+    }
+    startPlacing('checkpoint');
+  });
+
+  opMap.on('click', async (e)=>{
+    const mode = state.placingMode;
+    if(!mode) return;
+    const lat = e.latlng.lat, lng = e.latlng.lng;
+    state.placingMode = null;
+    resetPlacementHints();
+
+    if(mode === 'incident'){
+      const type = document.getElementById('incType').value;
+      const desc = document.getElementById('incDesc').value || 'No description provided';
+      const btn = document.getElementById('broadcastBtn');
+      setBusy(btn, 'Broadcasting...');
+      try{
+        if(LIVE){
+          const res = await gasPost('broadcastIncident', {lat, lng, type, desc});
+          if(res && res.ok === false) throw new Error(res.error);
+          addLog(`INCIDENT BROADCAST — ${type}: ${desc}`, true);
+          await pollState();
+        } else {
+          const inc = {id:'INC-'+Date.now(), lat, lng, type, desc, time: nowStr()};
+          MOCK.incidents.push(inc);
+          state.incidents = MOCK.incidents.map(i=>({...i}));
+          renderOpMap(); renderMarkerList();
+          addLog(`INCIDENT BROADCAST — ${type}: ${desc}`, true);
+        }
+        document.getElementById('incDesc').value = '';
+      }catch(err){
+        addLog(`ERROR broadcasting incident: ${err.message}`, true);
+        showToast('Could not broadcast incident: ' + err.message, 'error');
+      }finally{
+        clearBusy(btn);
+      }
+
+    } else if(mode === 'point'){
+      const labelInput = document.getElementById('pointLabel');
+      const label = labelInput.value.trim() || nextPointLabel();
+      const note = document.getElementById('pointNote').value.trim();
+      const btn = document.getElementById('placePointBtn');
+      setBusy(btn, 'Placing...');
+      try{
+        if(LIVE){
+          const res = await gasPost('addPoint', {label, lat, lng, note});
+          if(res && res.ok === false) throw new Error(res.error);
+          addLog(`POINT PLACED — ${label}`);
+          await pollState();
+        } else {
+          const pt = {id:'PT-'+Date.now(), label, lat, lng, note, time: nowStr()};
+          MOCK.points.push(pt);
+          state.points = MOCK.points.map(p=>({...p}));
+          renderOpMap(); renderMarkerList();
+          addLog(`POINT PLACED — ${label}`);
+        }
+        labelInput.value = '';
+        document.getElementById('pointNote').value = '';
+      }catch(err){
+        addLog(`ERROR placing point: ${err.message}`, true);
+        showToast('Could not place point: ' + err.message, 'error');
+      }finally{
+        clearBusy(btn);
+      }
+
+    } else if(mode === 'checkpoint'){
+      const label = document.getElementById('cpLabel').value.trim() || 'Checkpoint';
+      const radius = Number(document.getElementById('cpRadius').value) || 150;
+      const note = document.getElementById('cpNote').value.trim();
+      const btn = document.getElementById('broadcastCheckpointBtn');
+      setBusy(btn, 'Broadcasting...');
+      try{
+        if(LIVE){
+          const res = await gasPost('addCheckpoint', {label, lat, lng, radius, note});
+          if(res && res.ok === false) throw new Error(res.error);
+          addLog(`CHECKPOINT BROADCAST — ${label} (${radius}m)`, true);
+          await pollState();
+        } else {
+          const cp = {id:'CP-'+Date.now(), label, lat, lng, radius, note, time: nowStr()};
+          MOCK.checkpoints.push(cp);
+          state.checkpoints = MOCK.checkpoints.map(c=>({...c}));
+          renderOpMap(); renderMarkerList();
+          addLog(`CHECKPOINT BROADCAST — ${label} (${radius}m)`, true);
+        }
+        document.getElementById('cpLabel').value = '';
+        document.getElementById('cpNote').value = '';
+      }catch(err){
+        addLog(`ERROR broadcasting checkpoint: ${err.message}`, true);
+        showToast('Could not broadcast checkpoint: ' + err.message, 'error');
+      }finally{
+        clearBusy(btn);
+      }
+    }
+  });
+
+  document.getElementById('sendDispatch').addEventListener('click', async (e)=>{
+    e.stopPropagation();
+    const id = state.selectedUnit;
+    if(!id) return;
+    const msg = document.getElementById('dispatchMsg').value.trim();
+    if(!msg) return;
+    const uName = state.units.find(u=>u.id===id).name;
+    const btn = document.getElementById('sendDispatch');
+    setBusy(btn, 'Sending...');
+    try{
+      if(LIVE){
+        const res = await gasPost('dispatch', {unit:id, msg});
+        if(res && res.ok === false) throw new Error(res.error);
+        addLog(`DISPATCH → ${uName}: "${msg}"`);
+      } else {
+        if(!MOCK.instructions[id]) MOCK.instructions[id]=[];
+        MOCK.instructions[id].push({text:msg, time: nowStr()});
+        addLog(`DISPATCH → ${uName}: "${msg}"`);
+      }
+      document.getElementById('dispatchMsg').value='';
+      // After a successful instruction, automatically show Activity Log.
+      setOperationsPanel('log');
+    }catch(err){
+      addLog(`ERROR sending dispatch: ${err.message}`, true);
+      showToast('Could not send dispatch: ' + err.message, 'error');
+    }finally{
+      clearBusy(btn);
+    }
+  });
+
+  document.getElementById('closeDispatchBox').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.getElementById('dispatchBox').classList.remove('show');
+    state.selectedUnit = null;
+    renderUnitList();
+  });
+
+  // The dispatch controls live inside the Units accordion. Keep pointer/focus
+  // events inside the textarea from bubbling into the unit-selection handler.
+  const dispatchBox = document.getElementById('dispatchBox');
+  const dispatchMsg = document.getElementById('dispatchMsg');
+  ['click','mousedown','mouseup','touchstart','touchend','focus'].forEach(type=>{
+    dispatchBox.addEventListener(type, e=>e.stopPropagation());
+  });
+  dispatchMsg.addEventListener('keydown', e=>{
+    e.stopPropagation();
+    if(e.key === 'Enter' && (e.ctrlKey || e.metaKey)){
+      e.preventDefault();
+      document.getElementById('sendDispatch').click();
+    }
+  });
+}
+
+function selectUnit(id){
+  const u = state.units.find(x=>x.id===id);
+  if(!u) return;
+  state.selectedUnit = id;
+  const box = document.getElementById('dispatchBox');
+  box.classList.add('show');
+  document.getElementById('dispatchTitle').textContent = 'Instruct ' + u.name;
+  renderUnitList();
+}
+
+function renderUnitList(){
+  const el = document.getElementById('unitList');
+  if(!el) return;
+
+  // Keep the reusable dispatch box alive while the unit cards are rebuilt.
+  const box = document.getElementById('dispatchBox');
+  const unitsBody = document.querySelector('.unitsPanel .accBody');
+  if(box && unitsBody && box.parentElement !== unitsBody){
+    unitsBody.appendChild(box);
+  }
+  if(box){
+    box.classList.toggle('show', !!state.selectedUnit);
+  }
+
+  el.innerHTML='';
+  if(!state.units.length){
+    el.innerHTML = '<div class="empty" style="padding:12px 16px;">No active units.</div>';
+    if(box) box.classList.remove('show');
+    return;
+  }
+
+  state.units.forEach(u=>{
+    const dist = state.incidents.length
+      ? Math.min(...state.incidents.map(inc=>distanceMeters(u.lat,u.lng,inc.lat,inc.lng)))
+      : null;
+    const card = document.createElement('div');
+    card.className = 'unitCard' + (state.selectedUnit===u.id ? ' selected':'');
+    card.innerHTML = `
+      <div class="unitRow">
+        <span class="unitName">${escapeHtml(u.name)}</span>
+        <span class="status ${u.status}">${u.status==='onscene'?'on scene':u.status}</span>
+      </div>
+      <div class="unitMeta">${dist!==null ? dist+'m from incident · ' : ''}updated ${u.lastSync||'--'}</div>
+    `;
+    card.addEventListener('click', ()=>selectUnit(u.id));
+
+    if(state.selectedUnit===u.id && box){
+      box.classList.add('show');
+      document.getElementById('dispatchTitle').textContent = 'Instruct ' + u.name;
+      card.appendChild(box);
+    }
+
+    el.appendChild(card);
+  });
+}
+
+function simulateMovement(){
+  state.units.forEach(u=>{
+    let targetLat=u.lat, targetLng=u.lng;
+    if(u.status==='responding' && state.incidents.length){
+      const nearest = state.incidents.reduce((best, inc)=>{
+        const d = distanceMeters(u.lat, u.lng, inc.lat, inc.lng);
+        return (!best || d < best.d) ? {inc, d} : best;
+      }, null).inc;
+      targetLat = u.lat + (nearest.lat - u.lat)*0.35;
+      targetLng = u.lng + (nearest.lng - u.lng)*0.35;
+    } else if(u.status!=='onscene'){
+      targetLat = u.lat + (Math.random()-0.5)*0.0025;
+      targetLng = u.lng + (Math.random()-0.5)*0.0025;
+    }
+    u.lat = targetLat; u.lng = targetLng;
+    u.lastSync = nowStr();
+    const mu = MOCK.units.find(m=>m.id===u.id); if(mu){ mu.lat=u.lat; mu.lng=u.lng; }
+  });
+}
+
+let secondsSinceSync = 0;
+setInterval(()=>{
+  secondsSinceSync++;
+  const el = document.getElementById('syncText');
+  if(el) el.textContent = `synced ${secondsSinceSync}s ago`;
+}, 1000);
+
+let pollStateInFlight = false;
+async function pollState(){
+  if(pollStateInFlight) return;
+  pollStateInFlight = true;
+  try{
+    const data = await gasCall('getState', {});
+    if(data.error) throw new Error(data.error);
+    data.units.forEach(u => u.lastSync = nowStr());
+    state.units = data.units;
+    state.incidents = data.incidents || [];
+    state.points = data.points || [];
+    state.checkpoints = data.checkpoints || [];
+    secondsSinceSync = 0;
+    const dot = document.querySelector('#syncBadge .dot');
+    if(dot) dot.style.background = 'var(--green)';
+  }catch(err){
+    const dot = document.querySelector('#syncBadge .dot');
+    if(dot) dot.style.background = 'var(--red)';
+    addLog(`ERROR syncing with backend: ${err.message}`, true);
+  }finally{
+    pollStateInFlight = false;
+  }
+  if(session.role==='toc'){ renderOpMap(); renderUnitList(); renderMarkerList(); }
+  if(session.role==='patroller'){
+    renderPatMap();
+    // Fresh backend status -> button color on every state refresh.
+    syncStatusButtons();
+  }
+}
+
+/* ---------------- Units management ---------------- */
+// Full admin list (all units, active or not, with assigned Gmail) lives in
+// appData.unitsFull — kept separate from appData.units, which stays the
+// public active-only id/name list used for the patroller login dropdown.
+async function refreshUnitsFull(){
+  if(LIVE){
+    const res = await gasPost('getUnitsFull', {});
+    if(res.ok) appData.unitsFull = res.units;
+  }
+}
+function renderUnitsTable(){
+  const body = document.getElementById('unitsTableBody');
+  const list = LIVE ? (appData.unitsFull||[]).map(u=>({...u, status: (state.units.find(s=>s.id===u.id)||{}).status || '—'}))
+                     : MOCK.units;
+  body.innerHTML = list.map(u=>`
+    <tr>
+      <td class="mono">${escapeHtml(u.id)}</td>
+      <td>${escapeHtml(u.name)}</td>
+      <td class="mono" style="font-size:11.5px;">${u.email ? escapeHtml(u.email) : '<span class="empty">unassigned</span>'}</td>
+      <td><span class="pill ${u.active!==false?'on':'off'}">${u.active!==false?'active':'inactive'}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="iconBtn" data-edit="${u.id}">Edit</button>
+        <button class="iconBtn" data-edit-email="${u.id}">Gmail</button>
+        <button class="iconBtn" data-toggle="${u.id}">${u.active!==false?'Deactivate':'Activate'}</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="empty">No units yet.</td></tr>';
+
+  body.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>editUnitPrompt(b.dataset.edit)));
+  body.querySelectorAll('[data-edit-email]').forEach(b=>b.addEventListener('click', ()=>editUnitEmailPrompt(b.dataset.editEmail)));
+  body.querySelectorAll('[data-toggle]').forEach(b=>b.addEventListener('click', ()=>toggleUnitActive(b.dataset.toggle)));
+}
+
+function wireUnitsSection(){
+  document.getElementById('addUnitBtn').addEventListener('click', async ()=>{
+    const idInput = document.getElementById('newUnitId');
+    const nameInput = document.getElementById('newUnitName');
+    const emailInput = document.getElementById('newUnitEmail');
+    const errEl = document.getElementById('addUnitError');
+    errEl.textContent = '';
+    const name = nameInput.value.trim();
+    if(!name){ errEl.textContent = 'Name is required.'; return; }
+    const unitId = idInput.value.trim();
+    if(unitId && !/^U\d+$/i.test(unitId)){ errEl.textContent = 'UnitID must look like U1, U2, U15.'; return; }
+    const email = emailInput.value.trim();
+    const btn = document.getElementById('addUnitBtn');
+    setBusy(btn, 'Saving...');
+    try{
+      if(LIVE){
+        const res = await gasPost('addUnit', {unitId, name, email});
+        if(!res.ok) throw new Error(res.error);
+      } else {
+        const id = unitId || ('U' + (MOCK.units.length+1));
+        if(MOCK.units.some(u=>u.id.toLowerCase()===id.toLowerCase())) throw new Error('UnitID already exists.');
+        MOCK.units.push({id, name, lat:Number(MOCK.settings.defaultLat), lng:Number(MOCK.settings.defaultLng), status:'available', active:true, email});
+      }
+      idInput.value=''; nameInput.value=''; emailInput.value='';
+      await refreshUnitsFull();
+      renderUnitsTable();
+      showToast('Unit added.', 'success');
+    }catch(err){
+      errEl.textContent = err.message;
+    }finally{
+      clearBusy(btn);
+    }
+  });
+}
+
+async function editUnitPrompt(unitId){
+  const list = LIVE ? appData.unitsFull : MOCK.units;
+  const u = list && list.find(x=>x.id===unitId);
+  if(!u) return;
+  const newName = prompt('Edit name for ' + unitId, u.name);
+  if(newName === null || !newName.trim() || newName.trim()===u.name) return;
+  try{
+    if(LIVE){
+      const res = await gasPost('updateUnit', {unitId, name:newName.trim()});
+      if(!res.ok) throw new Error(res.error);
+    } else {
+      u.name = newName.trim();
+    }
+    await refreshUnitsFull();
+    renderUnitsTable();
+    showToast('Unit updated.', 'success');
+  }catch(err){
+    showToast('Could not update unit: ' + err.message, 'error');
+  }
+}
+
+async function editUnitEmailPrompt(unitId){
+  const list = LIVE ? appData.unitsFull : MOCK.units;
+  const u = list && list.find(x=>x.id===unitId);
+  if(!u) return;
+  const newEmail = prompt('Gmail address for ' + unitId + ' — used for Google sign-in (blank to unassign):', u.email || '');
+  if(newEmail === null) return;
+  const email = newEmail.trim();
+  if(email === (u.email||'')) return;
+  try{
+    if(LIVE){
+      const res = await gasPost('updateUnit', {unitId, email});
+      if(!res.ok) throw new Error(res.error);
+    } else {
+      u.email = email;
+    }
+    await refreshUnitsFull();
+    renderUnitsTable();
+    showToast('Gmail address updated.', 'success');
+  }catch(err){
+    showToast('Could not update Gmail address: ' + err.message, 'error');
+  }
+}
+
+async function toggleUnitActive(unitId){
+  const list = LIVE ? appData.unitsFull : MOCK.units;
+  const u = list && list.find(x=>x.id===unitId);
+  if(!u) return;
+  const willActivate = u.active === false;
+  if(!willActivate && !confirm(`Deactivate ${unitId}? They will be hidden from patroller login. Historical incidents/instructions are kept.`)) return;
+  try{
+    if(LIVE){
+      const res = await gasPost('updateUnit', {unitId, active: willActivate});
+      if(!res.ok) throw new Error(res.error);
+    } else {
+      u.active = willActivate;
+    }
+    u.active = willActivate;
+    await refreshUnitsFull();
+    renderUnitsTable();
+    showToast(willActivate ? 'Unit activated.' : 'Unit deactivated.', 'success');
+  }catch(err){
+    showToast('Could not update unit: ' + err.message, 'error');
+  }
+}
+
+/* ---------------- Incident types management ---------------- */
+function renderTypesTable(){
+  const body = document.getElementById('typesTableBody');
+  const list = LIVE ? appData.incidentTypes : MOCK.incidentTypes;
+  body.innerHTML = list.map(t=>`
+    <tr>
+      <td>${escapeHtml(t.name)}</td>
+      <td><span class="pill ${t.active!==false?'on':'off'}">${t.active!==false?'active':'inactive'}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="iconBtn" data-edit="${t.id}">Edit</button>
+        <button class="iconBtn" data-toggle="${t.id}">${t.active!==false?'Deactivate':'Activate'}</button>
+        <button class="iconBtn" data-del="${t.id}">Delete</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="3" class="empty">No incident types yet.</td></tr>';
+
+  body.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>editTypePrompt(b.dataset.edit)));
+  body.querySelectorAll('[data-toggle]').forEach(b=>b.addEventListener('click', ()=>toggleTypeActive(b.dataset.toggle)));
+  body.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>deleteTypePrompt(b.dataset.del)));
+}
+
+function wireTypesSection(){
+  document.getElementById('addTypeBtn').addEventListener('click', async ()=>{
+    const input = document.getElementById('newTypeName');
+    const errEl = document.getElementById('addTypeError');
+    errEl.textContent = '';
+    const name = input.value.trim();
+    if(!name){ errEl.textContent = 'Name is required.'; return; }
+    const btn = document.getElementById('addTypeBtn');
+    setBusy(btn, 'Saving...');
+    try{
+      if(LIVE){
+        const res = await gasPost('addIncidentType', {name});
+        if(!res.ok) throw new Error(res.error);
+        const b = await gasCall('bootstrap', {});
+        if(b.ok) appData.incidentTypes = b.data.incidentTypes;
+      } else {
+        if(MOCK.incidentTypes.some(t=>t.name.toLowerCase()===name.toLowerCase())) throw new Error('That type already exists.');
+        MOCK.incidentTypes.push({id:'IT-'+(MOCK.incidentTypes.length+1), name, active:true});
+      }
+      input.value='';
+      renderTypesTable();
+      populateIncidentTypeSelect();
+      showToast('Incident type added.', 'success');
+    }catch(err){
+      errEl.textContent = err.message;
+    }finally{
+      clearBusy(btn);
+    }
+  });
+}
+
+async function editTypePrompt(id){
+  const list = LIVE ? appData.incidentTypes : MOCK.incidentTypes;
+  const t = list.find(x=>x.id===id);
+  if(!t) return;
+  const newName = prompt('Edit incident type name', t.name);
+  if(newName === null || !newName.trim() || newName.trim()===t.name) return;
+  try{
+    if(LIVE){
+      const res = await gasPost('updateIncidentType', {id, name:newName.trim()});
+      if(!res.ok) throw new Error(res.error);
+      const b = await gasCall('bootstrap', {});
+      if(b.ok) appData.incidentTypes = b.data.incidentTypes;
+    } else {
+      t.name = newName.trim();
+    }
+    renderTypesTable(); populateIncidentTypeSelect();
+    showToast('Incident type updated.', 'success');
+  }catch(err){
+    showToast('Could not update: ' + err.message, 'error');
+  }
+}
+
+async function toggleTypeActive(id){
+  const list = LIVE ? appData.incidentTypes : MOCK.incidentTypes;
+  const t = list.find(x=>x.id===id);
+  if(!t) return;
+  const willActivate = t.active === false;
+  try{
+    if(LIVE){
+      const res = await gasPost('updateIncidentType', {id, active: willActivate});
+      if(!res.ok) throw new Error(res.error);
+      const b = await gasCall('bootstrap', {});
+      if(b.ok) appData.incidentTypes = b.data.incidentTypes;
+    } else {
+      t.active = willActivate;
+    }
+    renderTypesTable(); populateIncidentTypeSelect();
+    showToast(willActivate?'Activated.':'Deactivated.', 'success');
+  }catch(err){
+    showToast('Could not update: ' + err.message, 'error');
+  }
+}
+
+async function deleteTypePrompt(id){
+  const list = LIVE ? appData.incidentTypes : MOCK.incidentTypes;
+  const t = list.find(x=>x.id===id);
+  if(!t) return;
+  if(!confirm(`Permanently delete incident type "${t.name}"? This cannot be undone.`)) return;
+  try{
+    if(LIVE){
+      const res = await gasPost('deleteIncidentType', {id, hardDelete:true});
+      if(!res.ok) throw new Error(res.error);
+      const b = await gasCall('bootstrap', {});
+      if(b.ok) appData.incidentTypes = b.data.incidentTypes;
+    } else {
+      MOCK.incidentTypes = MOCK.incidentTypes.filter(x=>x.id!==id);
+    }
+    renderTypesTable(); populateIncidentTypeSelect();
+    showToast('Incident type deleted.', 'success');
+  }catch(err){
+    showToast('Could not delete: ' + err.message, 'error');
+  }
+}
+
+/* ---------------- Settings section ---------------- */
+let pickerMarker = null;
+function populateSettingsForm(){
+  const s = appData.settings || {};
+  document.getElementById('setAppName').value = s.appName || '';
+  document.getElementById('setAppSubtitle').value = s.appSubtitle || '';
+  document.getElementById('setMarquee').value = s.marqueeText || '';
+  document.getElementById('marqueePreview').textContent = s.marqueeText || '';
+  document.getElementById('setLat').value = s.defaultLat || '';
+  document.getElementById('setLng').value = s.defaultLng || '';
+  document.getElementById('setZoom').value = s.defaultZoom || '';
+
+  if(!settingsPickerMap){
+    const c = defaultCenterZoom();
+    settingsPickerMap = L.map('settingsPickerMap').setView([c.lat, c.lng], c.zoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}).addTo(settingsPickerMap);
+    pickerMarker = L.marker([c.lat, c.lng]).addTo(settingsPickerMap);
+    settingsPickerMap.on('click', (e)=>{
+      pickerMarker.setLatLng(e.latlng);
+      document.getElementById('setLat').value = e.latlng.lat.toFixed(6);
+      document.getElementById('setLng').value = e.latlng.lng.toFixed(6);
+    });
+  } else {
+    const lat = Number(s.defaultLat)||8.7550, lng = Number(s.defaultLng)||124.9550;
+    settingsPickerMap.setView([lat,lng], Number(s.defaultZoom)||14);
+    pickerMarker.setLatLng([lat,lng]);
+  }
+}
+
+function wireSettingsSection(){
+  document.getElementById('setMarquee').addEventListener('input', (e)=>{
+    document.getElementById('marqueePreview').textContent = e.target.value;
+  });
+
+  document.getElementById('saveIdentityBtn').addEventListener('click', async ()=>{
+    const errEl = document.getElementById('identityError'); errEl.textContent='';
+    const appName = document.getElementById('setAppName').value.trim();
+    const appSubtitle = document.getElementById('setAppSubtitle').value.trim();
+    if(!appName){ errEl.textContent = 'App name cannot be blank.'; return; }
+    const btn = document.getElementById('saveIdentityBtn');
+    setBusy(btn, 'Saving...');
+    try{
+      await saveSettings({appName, appSubtitle});
+      showToast('Application identity saved.', 'success');
+    }catch(err){ errEl.textContent = err.message; }
+    finally{ clearBusy(btn); }
+  });
+
+  document.getElementById('saveMarqueeBtn').addEventListener('click', async ()=>{
+    const errEl = document.getElementById('marqueeError'); errEl.textContent='';
+    const marqueeText = document.getElementById('setMarquee').value.trim();
+    if(!marqueeText){ errEl.textContent = 'Marquee text cannot be blank.'; return; }
+    const btn = document.getElementById('saveMarqueeBtn');
+    setBusy(btn, 'Saving...');
+    try{
+      await saveSettings({marqueeText});
+      showToast('Marquee updated.', 'success');
+    }catch(err){ errEl.textContent = err.message; }
+    finally{ clearBusy(btn); }
+  });
+
+  document.getElementById('useCurrentLocBtn').addEventListener('click', ()=>{
+    if(!navigator.geolocation){ showToast('Geolocation not available on this device.', 'error'); return; }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      document.getElementById('setLat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('setLng').value = pos.coords.longitude.toFixed(6);
+      const latlng = [pos.coords.latitude, pos.coords.longitude];
+      settingsPickerMap.setView(latlng, settingsPickerMap.getZoom());
+      pickerMarker.setLatLng(latlng);
+    }, err=>{
+      showToast('Could not get current location: ' + err.message, 'error');
+    }, {enableHighAccuracy:true, timeout:8000});
+  });
+
+  document.getElementById('saveDefaultLocBtn').addEventListener('click', async ()=>{
+    const errEl = document.getElementById('locError'); errEl.textContent='';
+    const lat = Number(document.getElementById('setLat').value);
+    const lng = Number(document.getElementById('setLng').value);
+    const zoom = Number(document.getElementById('setZoom').value);
+    if(isNaN(lat) || lat < -90 || lat > 90){ errEl.textContent = 'Latitude must be between -90 and 90.'; return; }
+    if(isNaN(lng) || lng < -180 || lng > 180){ errEl.textContent = 'Longitude must be between -180 and 180.'; return; }
+    if(isNaN(zoom) || zoom < 1 || zoom > 20){ errEl.textContent = 'Zoom must be between 1 and 20.'; return; }
+    const btn = document.getElementById('saveDefaultLocBtn');
+    setBusy(btn, 'Saving...');
+    try{
+      await saveSettings({defaultLat:String(lat), defaultLng:String(lng), defaultZoom:String(zoom)});
+      showToast('Default map location saved. It applies on next login/refresh.', 'success');
+    }catch(err){ errEl.textContent = err.message; }
+    finally{ clearBusy(btn); }
+  });
+
+  document.getElementById('changePasscodeBtn').addEventListener('click', async ()=>{
+    const errEl = document.getElementById('passcodeError'); errEl.textContent='';
+    const current = document.getElementById('curPasscode').value;
+    const next = document.getElementById('newPasscode').value;
+    const confirmVal = document.getElementById('confirmPasscode').value;
+    if(!current){ errEl.textContent = 'Enter your current passcode.'; return; }
+    if(!next || next.length < 6){ errEl.textContent = 'New passcode must be at least 6 characters.'; return; }
+    if(next !== confirmVal){ errEl.textContent = 'New passcode and confirmation do not match.'; return; }
+    const btn = document.getElementById('changePasscodeBtn');
+    setBusy(btn, 'Saving...');
+    try{
+      if(LIVE){
+        const res = await gasPost('changePasscode', {currentPasscode:current, newPasscode:next, confirmPasscode:confirmVal});
+        if(!res.ok) throw new Error(res.error);
+      } else {
+        if(current !== MOCK.passcode) throw new Error('Current passcode is incorrect.');
+        MOCK.passcode = next; saveMockPasscode();
+      }
+      document.getElementById('curPasscode').value='';
+      document.getElementById('newPasscode').value='';
+      document.getElementById('confirmPasscode').value='';
+      showToast('Passcode changed.', 'success');
+    }catch(err){ errEl.textContent = err.message; }
+    finally{ clearBusy(btn); }
+  });
+}
+
+async function saveSettings(partial){
+  if(LIVE){
+    const res = await gasPost('updateSettings', {settings: partial});
+    if(!res.ok) throw new Error(res.error);
+    const b = await gasCall('bootstrap', {});
+    if(b.ok) appData.settings = b.data.settings;
+  } else {
+    Object.assign(MOCK.settings, partial);
+    appData.settings = MOCK.settings;
+  }
+  applyBranding();
+  startMarqueeReduced();
+}
+
+/* ================= PATROLLER APP ================= */
+let patMap, patMarkers = {}, patIncidentMarkers = {}, patPointMarkers = {}, patCheckpointCircles = {};
+let patrollerInited = false;
+let geoWatchStarted = false;
+
+function initPatrollerApp(){
+  if(patrollerInited) return;
+  patrollerInited = true;
+
+  document.getElementById('patrollerView').classList.add('show');
+  document.getElementById('patrollerIdentityLabel').innerHTML =
+    `${escapeHtml(session.unitName || session.unitId)}<small>${escapeHtml(session.unitId)} · logged in</small>`;
+
+  const c = defaultCenterZoom();
+  patMap = L.map('patrollerMap', {zoomControl:true}).setView([c.lat, c.lng], c.zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}).addTo(patMap);
+
+  document.querySelectorAll('.stBtn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = session.unitId;
+      const newStatus = btn.dataset.status;
+      setBusy(btn, '...');
+      try{
+        if(LIVE){
+          const res = await gasCall('setStatus', {unit:id, status:newStatus});
+          if(res.error) throw new Error(res.error);
+        } else {
+          const u = MOCK.units.find(x=>x.id===id); if(u) u.status = newStatus;
+        }
+        const su = state.units.find(x=>x.id===id); if(su) su.status = newStatus;
+        addLog(`${session.unitName} marked themselves ${newStatus==='onscene'?'ON SCENE':newStatus.toUpperCase()}`);
+        syncStatusButtons();
+        renderPatMap();
+      }catch(err){
+        showToast('Could not update status: ' + err.message, 'error');
+      }finally{
+        clearBusy(btn);
+      }
+    });
+  });
+
+  if(LIVE){
+    // Load the current status from the backend immediately on login so the
+    // status button color reflects the value stored in the Google Sheet.
+    pollState().then(()=>syncStatusButtons()).catch(()=>{});
+    pollInstructions();
+    startGeoWatch();
+  } else {
+    state.incidents = MOCK.incidents.map(i=>({...i}));
+    state.units = MOCK.units.filter(u=>u.active).map(u=>({...u}));
+    state.points = MOCK.points.map(p=>({...p}));
+    state.checkpoints = MOCK.checkpoints.map(c=>({...c}));
+    renderPatMap();
+    renderInstructionsMock();
+  }
+  syncStatusButtons();
+
+  setInterval(()=>{
+    if(LIVE){
+      pollState();
+      pollInstructions();
+    } else {
+      simulateMovement();
+      renderPatMap();
+    }
+  }, POLL_MS);
+
+  window.addEventListener('resize', ()=>patMap.invalidateSize());
+}
+
+function renderPatMap(){
+  const selfId = session.unitId;
+  state.units.forEach(u=>{
+    const isSelf = u.id===selfId;
+    if(!patMarkers[u.id]){
+      patMarkers[u.id] = L.marker([u.lat,u.lng], {icon: unitIcon(u,isSelf)}).addTo(patMap);
+    } else {
+      patMarkers[u.id].setLatLng([u.lat,u.lng]);
+      patMarkers[u.id].setIcon(unitIcon(u,isSelf));
+    }
+    patMarkers[u.id].bindTooltip(isSelf? 'You' : u.name, {direction:'top'});
+  });
+  syncMarkerLayers(patMap, patIncidentMarkers, state.incidents,
+    (inc)=>{
+      const m = L.marker([inc.lat, inc.lng], {icon: incidentIcon()}).addTo(patMap);
+      m.bindTooltip(`${inc.type}${inc.desc ? ' — ' + inc.desc : ''}`, {direction:'top'});
+      return m;
+    },
+    (m, inc)=>{
+      m.setLatLng([inc.lat, inc.lng]);
+      m.bindTooltip(`${inc.type}${inc.desc ? ' — ' + inc.desc : ''}`, {direction:'top'});
+    }
+  );
+  syncMarkerLayers(patMap, patPointMarkers, state.points,
+    (pt)=>{
+      const m = L.marker([pt.lat, pt.lng], {icon: pointIcon(pt.label)}).addTo(patMap);
+      m.bindTooltip(pt.note ? `${pt.label} — ${pt.note}` : pt.label, {direction:'top'});
+      return m;
+    },
+    (m, pt)=>{
+      m.setLatLng([pt.lat, pt.lng]);
+      m.setIcon(pointIcon(pt.label));
+      m.bindTooltip(pt.note ? `${pt.label} — ${pt.note}` : pt.label, {direction:'top'});
+    }
+  );
+  syncMarkerLayers(patMap, patCheckpointCircles, state.checkpoints,
+    (cp)=>{
+      const c = L.circle([cp.lat, cp.lng], {radius: cp.radius, color:'#d99a2b', weight:2, fillColor:'#d99a2b', fillOpacity:0.15}).addTo(patMap);
+      c.bindTooltip(`${cp.label} — ${cp.radius}m radius${cp.note ? ' — ' + cp.note : ''}`, {direction:'top'});
+      return c;
+    },
+    (c, cp)=>{
+      c.setLatLng([cp.lat, cp.lng]);
+      c.setRadius(cp.radius);
+      c.bindTooltip(`${cp.label} — ${cp.radius}m radius${cp.note ? ' — ' + cp.note : ''}`, {direction:'top'});
+    }
+  );
+}
+
+function syncStatusButtons(){
+  const u = state.units.find(x=>String(x.id)===String(session.unitId));
+  const current = u && u.status ? String(u.status).trim().toLowerCase().replace(/\s+/g,'') : '';
+  document.querySelectorAll('.stBtn').forEach(b=>{
+    b.classList.remove('available','responding','onscene','active');
+    const btnStatus = String(b.dataset.status||'').trim().toLowerCase().replace(/\s+/g,'');
+    if(current && btnStatus===current){
+      b.classList.add('active', current);
+    }
+  });
+}
+
+function renderInstructionsMock(){
+  const items = MOCK.instructions[session.unitId] || [];
+  const list = document.getElementById('instructionsList');
+  if(items.length===0){ list.innerHTML = '<div class="empty">No instructions yet.</div>'; return; }
+  list.innerHTML = items.slice().reverse().map(m=>`<div class="msg">${escapeHtml(m.text)}<div class="meta">${m.time}</div></div>`).join('');
+}
+
+function renderInstructions(){
+  const list = document.getElementById('instructionsList');
+  const items = state.instructions[session.unitId] || [];
+  if(items.length===0){ list.innerHTML = '<div class="empty">No instructions yet.</div>'; return; }
+  list.innerHTML = items.slice().reverse().map(m=>`
+    <div class="msg">${escapeHtml(m.text)}<div class="meta">${m.time}${m.id ? ` · <a href="#" data-ack="${m.id}">Acknowledge</a>` : ''}</div></div>
+  `).join('');
+  list.querySelectorAll('[data-ack]').forEach(a=>a.addEventListener('click', (e)=>{ e.preventDefault(); ackAndRefresh(a.dataset.ack); }));
+}
+
+let pollInstructionsInFlight = false;
+async function pollInstructions(){
+  const selfId = session.unitId;
+  if(!selfId || pollInstructionsInFlight) return;
+  pollInstructionsInFlight = true;
+  try{
+    const data = await gasCall('getInstructions', {unit:selfId});
+    if(data.error) throw new Error(data.error);
+    state.instructions[selfId] = data.instructions.filter(m=>!m.acked);
+    renderInstructions();
+  }catch(err){
+    addLog(`ERROR fetching instructions: ${err.message}`, true);
+  }finally{
+    pollInstructionsInFlight = false;
+  }
+}
+
+async function ackAndRefresh(instructionId){
+  try{
+    await gasCall('ackInstruction', {id:instructionId});
+    await pollInstructions();
+  }catch(err){
+    showToast('Could not acknowledge: ' + err.message, 'error');
+  }
+}
+
+function startGeoWatch(){
+  if(!LIVE || !navigator.geolocation || geoWatchStarted) return;
+  geoWatchStarted = true;
+  let lastSent = 0;
+  let geoPushInFlight = false;
+  navigator.geolocation.watchPosition((pos)=>{
+    const now = Date.now();
+    if(now - lastSent < POLL_MS) return;
+    if(geoPushInFlight) return;
+    lastSent = now;
+    geoPushInFlight = true;
+    const selfId = session.unitId;
+    if(!selfId){ geoPushInFlight = false; return; }
+    gasCall('updateLocation', { unit: selfId, lat: pos.coords.latitude, lng: pos.coords.longitude })
+      .catch(err => addLog(`ERROR sending GPS: ${err.message}`, true))
+      .finally(()=>{ geoPushInFlight = false; });
+  }, (err)=>{
+    addLog(`Geolocation unavailable: ${err.message}`, true);
+    showToast('Location access denied or unavailable — your position will not update on the map.', 'error');
+  }, { enableHighAccuracy:true, maximumAge:2000 });
+}
+
+/* ================= BOOT ================= */
+(async function boot(){
+  initGoogleSignIn();
+  try{
+    await loadBootstrap();
+  }catch(err){
+    showToast('Could not load app configuration: ' + err.message, 'error');
+  }
+
+  // Auto-restore an existing session on this device without forcing re-login.
+  if(session.role === 'toc' && (session.token || !LIVE)){
+    if(!LIVE) session.token = 'mock-token';
+    enterApp();
+  } else if(session.role === 'patroller' && session.unitId){
+    session.unitName = session.unitName || (appData.units.find(u=>u.id===session.unitId)||{}).name || session.unitId;
+    // Confirm the unit is still active/known before auto-entering.
+    if((appData.units||[]).some(u=>u.id===session.unitId)){
+      enterApp();
+    } else {
+      session.role = null; session.unitId = null; persistSession();
+      showLoginRoot();
+    }
+  } else {
+    showLoginRoot();
+  }
+})();
+</script>
+</body>
+</html>
