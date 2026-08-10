@@ -842,22 +842,65 @@ function applyBranding(){
 // Renders the "Sign in with Google" button once the GIS script has loaded.
 // Silently does nothing if LIVE is false or GOOGLE_CLIENT_ID isn't set —
 // the unit-select / TOC passcode flow keeps working as the only login path.
+//
+// IMPORTANT FAILURE MODE: Google Identity Services fails completely silent
+// (no popup, no visible error — only a console warning) whenever the page's
+// origin isn't one it trusts for this Client ID. That happens if you open
+// this file directly (file://...) or if the page's live https:// URL hasn't
+// been added under "Authorized JavaScript origins" for GOOGLE_CLIENT_ID in
+// Google Cloud Console > APIs & Services > Credentials. The checks below
+// turn that silence into a visible on-screen message instead.
 function initGoogleSignIn(attempt){
   attempt = attempt || 0;
   if(!LIVE || !GOOGLE_SIGNIN_CONFIGURED) return;
-  if(!(window.google && window.google.accounts && window.google.accounts.id)){
-    if(attempt < 25) setTimeout(()=>initGoogleSignIn(attempt+1), 200);
+
+  if(location.protocol === 'file:'){
+    console.warn('[RESPONDE] Google Sign-In disabled: page opened via file:// — GIS requires an http(s) origin and will not respond to clicks at all here.');
+    showGoogleSignInProblem('Google sign-in needs this page opened from its live web address (https://...), not a local file. Use the login options below for now.');
     return;
   }
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleGoogleCredential
-  });
+
+  if(!(window.google && window.google.accounts && window.google.accounts.id)){
+    if(attempt < 25){ setTimeout(()=>initGoogleSignIn(attempt+1), 200); return; }
+    console.warn('[RESPONDE] Google Identity Services script (accounts.google.com/gsi/client) never loaded — check ad blockers, privacy extensions, or network/CSP restrictions.');
+    showGoogleSignInProblem('Google sign-in could not load. Use the login options below for now.');
+    return;
+  }
+
+  try{
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredential,
+      error_callback: function(err){
+        console.error('[RESPONDE] Google Sign-In error_callback fired:', err);
+        showGoogleSignInProblem('Google sign-in ran into a problem starting up. Use the login options below for now.');
+      }
+    });
+    document.getElementById('googleSignInSection').classList.remove('hidden');
+    document.getElementById('loginOrDivider').classList.remove('hidden');
+    google.accounts.id.renderButton(document.getElementById('googleSignInBtn'), {
+      theme:'outline', size:'large', width:320, text:'signin_with'
+    });
+    // If tapping the rendered button does nothing at all (no popup, no
+    // error here either), open DevTools > Console on this page: GIS logs
+    // the real reason there (commonly "[GSI_LOGGER]: The given origin is
+    // not allowed for the given client ID"). Fix by adding this exact
+    // origin to the OAuth Client ID's Authorized JavaScript origins.
+    console.log('[RESPONDE] Google Sign-In initialized. Current origin:', location.origin, '— this exact origin must be listed under Authorized JavaScript origins for Client ID', GOOGLE_CLIENT_ID, 'in Google Cloud Console, or the button will render but never respond to taps.');
+  }catch(err){
+    console.error('[RESPONDE] Google Sign-In failed to initialize:', err);
+    showGoogleSignInProblem('Google sign-in failed to start (' + err.message + '). Use the login options below for now.');
+  }
+}
+
+// Surfaces a Google Sign-In problem on-screen instead of leaving the button
+// silently unresponsive — hides the (non-functional) Google button itself
+// but keeps the message + divider visible above the normal login options.
+function showGoogleSignInProblem(msg){
   document.getElementById('googleSignInSection').classList.remove('hidden');
+  document.getElementById('googleSignInBtn').style.display = 'none';
   document.getElementById('loginOrDivider').classList.remove('hidden');
-  google.accounts.id.renderButton(document.getElementById('googleSignInBtn'), {
-    theme:'outline', size:'large', width:320, text:'signin_with'
-  });
+  document.getElementById('googleLoginError').textContent = msg;
 }
 
 async function handleGoogleCredential(response){
@@ -876,6 +919,7 @@ async function handleGoogleCredential(response){
     persistSession();
     enterApp();
   }catch(err){
+    console.error('[RESPONDE] Google login exchange failed:', err);
     errEl.textContent = err.message;
     showToast('Google sign-in failed: ' + err.message, 'error');
   }
