@@ -451,9 +451,9 @@
 
           <div id="opPanelSelectWrap">
             <select id="opPanelSelect" aria-label="Operations panel">
-              <option value="incident" selected>New Incident</option>
+              <option value="incident">New Incident</option>
               <option value="markers">Points &amp; Checkpoints</option>
-              <option value="units">Units in Area</option>
+              <option value="units" selected >Units in Area</option>
               <option value="log">Activity Log</option>
             </select>
           </div>
@@ -1316,7 +1316,7 @@ function wireOperationsCombo(){
   const select = document.getElementById('opPanelSelect');
   if(!select) return;
   select.addEventListener('change', ()=>setOperationsPanel(select.value));
-  setOperationsPanel('incident');
+  setOperationsPanel('units');
 }
 function wireMarkerTypeToggle(){
   const toggle = document.getElementById('markerTypeToggle');
