@@ -291,6 +291,11 @@
   .leaflet-popup-content-wrapper{background:var(--navy-800); color:var(--paper); border-radius:4px;}
   .leaflet-popup-tip{background:var(--navy-800);}
 
+  .leaflet-control-layers{background:var(--navy-800); color:var(--paper); border:1px solid var(--navy-600); border-radius:4px; box-shadow:0 2px 10px rgba(0,0,0,0.4);}
+  .leaflet-control-layers-toggle{filter:invert(1) brightness(1.6);}
+  .leaflet-control-layers-expanded{padding:8px 12px; font-family:'IBM Plex Mono'; font-size:12px;}
+  .leaflet-control-layers-separator{border-top:1px solid var(--navy-600);}
+
   /* ---------- Patroller view ---------- */
   #patrollerView{display:none; flex-direction:column; width:100%;}
   #patrollerView.show{display:flex;}
@@ -1159,9 +1164,13 @@ function initTocApp(){
 
   const c = defaultCenterZoom();
   opMap = L.map('map', {zoomControl:true}).setView([c.lat, c.lng], c.zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  const opStreetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution:'&copy; OpenStreetMap contributors', maxZoom:19
   }).addTo(opMap);
+  const opSatLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution:'&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics', maxZoom:19
+  });
+  L.control.layers({'Street':opStreetLayer, 'Satellite':opSatLayer}, null, {position:'topright'}).addTo(opMap);
 
   populateIncidentTypeSelect();
   buildTickerUI();
@@ -2094,7 +2103,11 @@ function initPatrollerApp(){
 
   const c = defaultCenterZoom();
   patMap = L.map('patrollerMap', {zoomControl:true}).setView([c.lat, c.lng], c.zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}).addTo(patMap);
+  const patStreetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'&copy; OpenStreetMap contributors', maxZoom:19}).addTo(patMap);
+  const patSatLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution:'&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics', maxZoom:19
+  });
+  L.control.layers({'Street':patStreetLayer, 'Satellite':patSatLayer}, null, {position:'topright'}).addTo(patMap);
 
   document.querySelectorAll('.stBtn').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
